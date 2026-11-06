@@ -206,7 +206,7 @@
 
 <!-- CPRS window -->
 <div class="win cprs hidden" id="win-cprs" style="left:110px;top:40px;width:1160px;height:720px">
-  <div class="titlebar" data-drag><div class="tIco appIco ico-cprs">C</div><div class="tText" id="cTitle">VistA CPRS in use by: Otcer,Efj (vista.mockup.va.gov)</div>
+  <div class="titlebar" data-drag><div class="tIco appIco ico-cprs">C</div><div class="tText" id="cTitle">VistA CPRS in use by: Borne,Ben (vista.mockup.va.gov)</div>
     <div class="tBtns"><button data-min title="Minimize">&#8211;</button><button data-max title="Maximize">&#9744;</button><button class="x" data-close title="Close">&#10005;</button></div></div>
   <div class="cMenu" id="cMenu">
     <div><span>File</span><div class="cDrop"><div data-cmd="selectPatient">Select New Patient...</div><div class="dis">Refresh Patient Information</div><hr><div class="dis">Update Provider / Location...</div><div class="dis">Review/Sign Changes...</div><hr><div class="dis">Print Setup...</div><div data-cmd="print">Print...</div><hr><div data-cmd="exit">Exit</div></div></div>
@@ -219,7 +219,7 @@
   </div>
   <div class="cHead">
     <div class="pbtn pt" data-cmd="selectPatient" id="hPatient"></div>
-    <div class="pbtn" id="hLoc">TELEHEALTH CC<br>Provider: OTCER,EFJ</div>
+    <div class="pbtn" id="hLoc">TELEHEALTH CC<br>Provider: BORNE,BEN</div>
     <div class="pbtn">Primary Care Team Unassigned<br>Attending: PROVIDER,PRIMARY</div>
     <div class="grow"></div>
     <div class="pbtn" style="text-align:center">Remote<br>Data</div>
@@ -262,7 +262,7 @@
     <div class="app" data-open="browser" data-url="worklist.html"><div class="appIco" style="background:#004C97;font-size:11px">CC</div>CareConsole</div>
     <div class="app" data-open="browser" data-url="patient-analysis.html"><div class="appIco" style="background:#0b6a8a;font-size:11px">PA</div>Patient Analysis</div>
   </div>
-  <div class="user">&#128100; Otcer, Efj (VHA Care Coordinator)</div>
+  <div class="user">&#128100; Borne, Ben (VHA Care Coordinator)</div>
 </div>
 <div class="taskbar">
   <button class="tbBtn" id="tbStart"><span class="ico-start"><i></i><i></i><i></i><i></i></span><span class="tbTip">Start</span></button>
@@ -399,7 +399,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     WM: ['METFORMIN 500MG TAB  Active', 'MULTIVITAMIN TAB  Active'] };
   const TITLES = ['HOME TELEHEALTH CARE COORDINATION NOTE', 'HOME TELEHEALTH NOTE', 'HOME TELEHEALTH NON-RESPONDER NOTE', 'HOME TELEHEALTH DISCHARGE NOTE',
     'RPM-HT PERIODIC EVALUATION NOTE', 'RPM-HT TECH EDUCATION NOTE', 'MOVE! TELEHEALTH NOTE', 'NURSING NOTE', 'PRIMARY CARE TELEPHONE NOTE', 'PRIMARY CARE NOTE'];
-  const AUTHOR = 'OTCER,EFJ', AUTHOR_LONG = 'EFJ OTCER', AUTHOR_TITLE = 'RN, HOME TELEHEALTH CARE COORDINATOR';
+  const AUTHOR = 'BORNE,BEN', AUTHOR_LONG = 'BEN BORNE', AUTHOR_TITLE = 'RN, HOME TELEHEALTH CARE COORDINATOR';
   const pts = CC_RAW.map(r => ({ id: r.id, prog: r.prog, last: r.last.toUpperCase(), first: r.first.toUpperCase(), raw: r, ...DEMO[r.id] }))
     .sort((a, b) => (a.last + a.first).localeCompare(b.last + b.first));
   const byId = Object.fromEntries(pts.map(p => [p.id, p]));
@@ -439,7 +439,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   }
   function renderHeader() {
     $('hPatient').innerHTML = pt ? `${esc(pt.last)},${esc(pt.first)}<small>${pt.ssn}&nbsp;&nbsp;&nbsp;${vDate(pt.dob)} (${age(pt)})</small>` : 'No patient selected<small>&nbsp;</small>';
-    $('cTitle').textContent = `VistA CPRS in use by: Otcer,Efj (vista.mockup.va.gov)${pt ? `  —  ${pt.last},${pt.first}` : ''}`;
+    $('cTitle').textContent = `VistA CPRS in use by: Borne,Ben (vista.mockup.va.gov)${pt ? `  —  ${pt.last},${pt.first}` : ''}`;
   }
   function renderCover() {
     if (!pt) { $('cover').innerHTML = ''; return; }

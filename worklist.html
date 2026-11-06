@@ -185,7 +185,7 @@
 <div class="menuHeaderBar">
   <img class="logo" id="imgLogo" alt="CareConsole">
   <nav class="menuNav" id="menuNav"></nav>
-  <a class="menuUser">efj otcer</a>
+  <a class="menuUser">Ben Borne</a>
   <div class="menuIcons">
     <span data-tip="Reminders"><img data-img="reminder" alt="Reminders"></span>
     <span data-tip="Tasks"><img data-img="tasks_icon" alt="Tasks"><b class="badge">0</b></span>
@@ -377,7 +377,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   // =====================================================================
   const START = new Date(2026, 0, 1);   // data day 1
   const DAYS = 180;                     // data day 180 = 6/29/2026 = "today"
-  const USER = 'efj otcer';
+  const USER = 'Ben Borne';
   const PROGRAMS = {
     HTN: { dmpName: 'VHA Hypertension', coc: 'NIC', cocName: 'Non-institutional Care', total: 50, disease: 'Hypertension',      groups: [1, 1001, 10001, 2] },
     HF:  { dmpName: 'VHA CHF',          coc: 'NIC', cocName: 'Non-institutional Care', total: 40, disease: 'CHF',               groups: [1, 1001, 10001, 2, 3] },
@@ -465,7 +465,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   $('imgLogo').src = CC_IMG.logo;
   const imgUrl = n => `url(${CC_IMG[n]})`;
 
-  const patients = CC_RAW.map(p => ({ ...p, ...PROGRAMS[p.prog], ...META[p.id], cc: 'otcer, efj', name: `${p.last}, ${p.first}` }));
+  const patients = CC_RAW.map(p => ({ ...p, ...PROGRAMS[p.prog], ...META[p.id], cc: 'Borne, Ben', name: `${p.last}, ${p.first}` }));
   const byId = Object.fromEntries(patients.map(p => [p.id, p]));
 
   // =====================================================================
