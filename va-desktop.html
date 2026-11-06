@@ -67,10 +67,10 @@
   .search { width: 200px; height: 32px; border-radius: 16px; background: rgba(255,255,255,.08); color: #bbb; display: flex; align-items: center; padding: 0 12px; gap: 8px; margin: 0 6px; font-size: 12px; }
   .tray { position: absolute; right: 10px; top: 0; bottom: 0; display: flex; align-items: center; gap: 14px; color: #fff; font-size: 12px; }
   .tray .clock { text-align: right; line-height: 1.3; }
-  .startMenu { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); width: 420px; background: rgba(36, 40, 48, .97); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 18px; color: #fff; z-index: 5001; display: none; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  .startMenu { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); width: 500px; background: rgba(36, 40, 48, .97); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 18px; color: #fff; z-index: 5001; display: none; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
   .startMenu.open { display: block; }
   .startMenu h4 { margin: 0 0 12px; font-weight: 600; font-size: 13px; }
-  .startMenu .apps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .startMenu .apps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
   .startMenu .app { text-align: center; padding: 8px 4px; border-radius: 4px; font-size: 11px; }
   .startMenu .app:hover { background: rgba(255,255,255,.08); }
   .startMenu .app .appIco { width: 32px; height: 32px; margin: 0 auto 6px; }
@@ -216,6 +216,88 @@
   .lockScreen .tray2 { position: absolute; right: 26px; bottom: 22px; display: flex; gap: 20px; font-size: 18px; opacity: .9; }
   .lockScreen .shake { animation: shake .35s; }
   @keyframes shake { 20%, 60% { margin-left: -8px; } 40%, 80% { margin-left: 8px; } }
+
+  /* ---------- Oracle Health PowerChart (Cerner) look-alike ---------- */
+  .ico-cerner { background: linear-gradient(#c74634, #9e2f22); font-size: 9px; letter-spacing: .2px; border: 1px solid #7a2117; }
+  .cerner { font-family: "Segoe UI", Arial, sans-serif; font-size: 12px; color: #1f1f1f; background: #f4f5f7; }
+  .cerner .titlebar { background: #fff; }
+  .pcMenu { height: 22px; flex: none; display: flex; align-items: center; background: #f0f0f0; border-bottom: 1px solid #d6d6d6; font-size: 12px; }
+  .pcMenu span { padding: 2px 9px; } .pcMenu span:hover { background: #dce9f7; }
+  .pcTool { height: 34px; flex: none; display: flex; align-items: center; gap: 2px; padding: 0 6px; background: #2b4a6b; color: #fff; }
+  .pcTool .tb { display: flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 3px; cursor: default; font-size: 12px; white-space: nowrap; }
+  .pcTool .tb:hover { background: rgba(255,255,255,.14); }
+  .pcTool .sep { width: 1px; height: 20px; background: rgba(255,255,255,.25); margin: 0 4px; }
+  .pcTool .grow { flex: 1; }
+  .pcSearch { display: flex; align-items: center; background: #fff; border-radius: 3px; height: 24px; width: 260px; color: #333; position: relative; }
+  .pcSearch input { border: 0; outline: none; flex: 1; height: 22px; padding: 0 8px; font: inherit; font-size: 12px; background: transparent; }
+  .pcSearch .mag { padding: 0 8px; color: #2b4a6b; }
+  .pcResults { position: absolute; top: 26px; left: 0; right: 0; background: #fff; border: 1px solid #9aa9b8; box-shadow: 0 4px 10px rgba(0,0,0,.25); z-index: 40; display: none; }
+  .pcResults div { padding: 5px 8px; cursor: default; border-bottom: 1px solid #eef1f4; }
+  .pcResults div:hover { background: #e3eefa; }
+  .pcResults small { color: #666; }
+  .pcBanner { flex: none; background: linear-gradient(#ffffff, #eef1f5); border-bottom: 2px solid #c6ced8; padding: 6px 12px; display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 2px 26px; align-items: start; }
+  .pcBanner .nm { grid-row: span 2; font-size: 17px; font-weight: 700; color: #1b3550; white-space: nowrap; padding-right: 10px; }
+  .pcBanner .nm small { display: block; font-size: 11px; font-weight: 400; color: #555; }
+  .pcBanner .f { font-size: 11.5px; white-space: nowrap; } .pcBanner .f b { color: #555; font-weight: 600; }
+  .pcBanner .alg { color: #b00020; font-weight: 600; }
+  .pcBody { flex: 1; display: flex; min-height: 0; }
+  .pcToc { width: 190px; flex: none; background: #e6eaef; border-right: 1px solid #c6ced8; overflow-y: auto; padding: 4px 0; }
+  .pcToc div { padding: 5px 12px; color: #1a4f86; cursor: default; }
+  .pcToc div:hover { background: #d4dde8; }
+  .pcToc div.on { background: #fff; font-weight: 600; color: #1f1f1f; border-left: 3px solid #2b6cb0; padding-left: 9px; }
+  .pcToc .h { color: #555; font-size: 11px; text-transform: uppercase; padding-top: 10px; cursor: default; }
+  .pcToc .h:hover { background: transparent; }
+  .pcMain { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fff; }
+  .pcViewHead { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid #d9dee5; background: #f7f8fa; }
+  .pcViewHead h2 { margin: 0; font-size: 15px; font-weight: 600; color: #1b3550; flex: 1; }
+  .pcBtn { font: inherit; font-size: 12px; background: #fff; border: 1px solid #8fa1b5; border-radius: 3px; padding: 3px 12px; cursor: default; color: #1f1f1f; }
+  .pcBtn:hover { background: #e9f1fa; border-color: #2b6cb0; }
+  .pcBtn.primary { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+  .pcBtn.primary:hover { background: #245c96; }
+  .pcBtn:disabled { color: #999; border-color: #ccc; background: #f4f4f4; }
+  .pcDocs { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .pcList { flex: 0 0 38%; overflow-y: auto; border-bottom: 3px solid #d9dee5; }
+  .pcList table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .pcList th { position: sticky; top: 0; background: #eef1f5; text-align: left; font-weight: 600; padding: 4px 8px; border-bottom: 1px solid #c6ced8; color: #333; }
+  .pcList td { padding: 4px 8px; border-bottom: 1px solid #eef1f4; white-space: nowrap; }
+  .pcList tr:hover td { background: #f0f6fd; }
+  .pcList tr.sel td { background: #cfe2f7; }
+  .pcList .ip { color: #b25e00; font-weight: 600; }
+  .pcPreview { flex: 1; overflow: auto; padding: 14px 18px; user-select: text; }
+  .pcDoc h3 { margin: 0 0 2px; font-size: 15px; color: #1b3550; }
+  .pcDoc .meta { color: #555; font-size: 11.5px; margin-bottom: 12px; line-height: 1.5; }
+  .pcDoc .body { font-family: Arial, sans-serif; font-size: 13px; line-height: 1.45; }
+  .pcDoc .sig { margin-top: 18px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 12px; color: #333; }
+  .pcEdit { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 8px 12px; gap: 8px; background: #fff; }
+  .pcFields { display: grid; grid-template-columns: 1.2fr 1.6fr .9fr .9fr; gap: 6px 12px; }
+  .pcFields label { display: block; font-size: 11px; color: #555; margin-bottom: 2px; }
+  .pcFields label .req { color: #b00020; }
+  .pcFields input, .pcFields select { width: 100%; height: 24px; font: inherit; font-size: 12px; border: 1px solid #9aa9b8; border-radius: 2px; padding: 0 5px; background: #fff; }
+  .pcFields input[readonly] { background: #f3f4f6; }
+  .pcRte { flex: 1; display: flex; flex-direction: column; border: 1px solid #9aa9b8; min-height: 0; }
+  .pcRteBar { flex: none; display: flex; align-items: center; gap: 2px; padding: 3px 4px; background: #eef1f5; border-bottom: 1px solid #c6ced8; }
+  .pcRteBar select { height: 22px; font: inherit; font-size: 11px; border: 1px solid #9aa9b8; }
+  .pcRteBar button { min-width: 26px; height: 22px; border: 1px solid transparent; background: transparent; border-radius: 2px; font-size: 12px; cursor: default; }
+  .pcRteBar button:hover { border-color: #9aa9b8; background: #fff; }
+  .pcRteBar .sep { width: 1px; height: 18px; background: #c6ced8; margin: 0 3px; }
+  .pcRteArea { flex: 1; overflow: auto; padding: 10px 12px; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.45; outline: none; user-select: text; }
+  .pcRteArea:empty::before { content: attr(data-ph); color: #888; }
+  .pcRteArea pre, .pcDoc .body pre { font-family: "Courier New", Courier, monospace; font-size: 12.5px; white-space: pre-wrap; margin: 6px 0; line-height: 1.3; }
+  .pcEditFoot { flex: none; display: flex; gap: 8px; align-items: center; }
+  .pcEditFoot .hint { flex: 1; color: #555; font-size: 11px; }
+  .pcSimple { padding: 12px 16px; overflow: auto; }
+  .pcSimple table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .pcSimple th { text-align: left; background: #eef1f5; padding: 5px 8px; border-bottom: 1px solid #c6ced8; }
+  .pcSimple td { padding: 5px 8px; border-bottom: 1px solid #eef1f4; }
+  .pcEmpty { margin: auto; color: #666; text-align: center; padding: 30px; }
+  .pcStatus { flex: none; height: 20px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: #e6eaef; border-top: 1px solid #c6ced8; font-size: 11px; color: #444; }
+  .pcModalBack { position: absolute; inset: 0; background: rgba(20,30,45,.35); display: none; align-items: center; justify-content: center; z-index: 60; }
+  .pcModalBack.open { display: flex; }
+  .pcModal { background: #fff; border: 1px solid #6d7f93; border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.35); width: 460px; font-size: 12px; }
+  .pcModal .mh { background: #2b4a6b; color: #fff; padding: 7px 12px; font-weight: 600; display: flex; justify-content: space-between; border-radius: 3px 3px 0 0; }
+  .pcModal .mb { padding: 12px 14px; display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; }
+  .pcModal .mb .k { color: #555; }
+  .pcModal .mf { display: flex; justify-content: flex-end; gap: 8px; padding: 0 14px 12px; }
 </style>
 </head>
 <body>
@@ -241,6 +323,7 @@
 
 <div class="icons">
   <div class="dicon" data-open="cprs"><div class="ico appIco ico-cprs">CPRS</div>CPRS</div>
+  <div class="dicon" data-open="cerner"><div class="ico appIco ico-cerner">PC</div>PowerChart</div>
   <div class="dicon" data-open="browser" data-url="worklist.html"><div class="ico appIco ico-browser">e</div>CareConsole</div>
 </div>
 
@@ -306,6 +389,27 @@
   <div class="grip"></div><div class="rz n" data-rz="n"></div><div class="rz s" data-rz="s"></div><div class="rz e" data-rz="e"></div><div class="rz w" data-rz="w"></div><div class="rz ne" data-rz="ne"></div><div class="rz nw" data-rz="nw"></div><div class="rz se" data-rz="se"></div><div class="rz sw" data-rz="sw"></div>
 </div>
 
+
+<!-- Oracle Health PowerChart (Cerner) window: look-alike for the mockup -->
+<div class="win cerner hidden" id="win-cerner" style="left:160px;top:50px;width:1160px;height:720px">
+  <div class="titlebar" data-drag><div class="tIco appIco ico-cerner">PC</div><div class="tText" id="pcTitle">PowerChart Organizer for BORNE, BEN</div>
+    <div class="tBtns"><button data-min title="Minimize">&#8211;</button><button data-max title="Maximize">&#9744;</button><button class="x" data-close title="Close">&#10005;</button></div></div>
+  <div class="pcMenu"><span>Task</span><span>Edit</span><span>View</span><span>Patient</span><span>Chart</span><span>Links</span><span>Notifications</span><span>Navigation</span><span>Help</span></div>
+  <div class="pcTool">
+    <span class="tb">&#9993; Message Center</span><span class="tb">&#128197; Ambulatory Organizer</span><span class="tb">&#128101; Patient List</span>
+    <span class="sep"></span><span class="tb" id="pcTear">&#128203; Tear Off</span><span class="tb">&#128274; Suspend</span><span class="tb">&#9881; Exit</span>
+    <span class="grow"></span>
+    <div class="pcSearch"><input id="pcFind" placeholder="Search for a patient (last name, first name or MRN)" autocomplete="off"><span class="mag">&#128269;</span><div class="pcResults" id="pcResults"></div></div>
+  </div>
+  <div class="pcBanner" id="pcBanner"></div>
+  <div class="pcBody">
+    <div class="pcToc" id="pcToc"></div>
+    <div class="pcMain" id="pcMain"></div>
+  </div>
+  <div class="pcStatus"><span id="pcStat">Ready</span><span>VA Federal EHR (simulated) &nbsp;|&nbsp; 06/29/2026</span></div>
+  <div class="pcModalBack" id="pcModal"></div>
+  <div class="grip"></div><div class="rz n" data-rz="n"></div><div class="rz s" data-rz="s"></div><div class="rz e" data-rz="e"></div><div class="rz w" data-rz="w"></div><div class="rz ne" data-rz="ne"></div><div class="rz nw" data-rz="nw"></div><div class="rz se" data-rz="se"></div><div class="rz sw" data-rz="sw"></div>
+</div>
 <div class="ctx" id="ctx"></div>
 <div class="dragShield" id="shield"></div>
 
@@ -315,6 +419,7 @@
   <div class="apps">
     <div class="app" data-open="browser"><div class="appIco ico-browser">e</div>Browser</div>
     <div class="app" data-open="cprs"><div class="appIco ico-cprs">CPRS</div>CPRS</div>
+    <div class="app" data-open="cerner"><div class="appIco ico-cerner">PC</div>PowerChart</div>
     <div class="app" data-open="browser" data-url="worklist.html"><div class="appIco" style="background:#004C97;font-size:11px">CC</div>CareConsole</div>
     <div class="app" data-open="browser" data-url="patient-analysis.html"><div class="appIco" style="background:#0b6a8a;font-size:11px">PA</div>Patient Analysis</div>
   </div>
@@ -326,6 +431,7 @@
   <button class="tbBtn" title=""><div class="appIco ico-folder"></div><span class="tbTip">File Explorer</span></button>
   <button class="tbBtn running" id="tb-browser"><div class="appIco ico-browser">e</div><span class="tbTip" id="tbTipBrowser">CareConsole - Browser</span></button>
   <button class="tbBtn running" id="tb-cprs"><div class="appIco ico-cprs">CPRS</div><span class="tbTip">VistA CPRS</span></button>
+  <button class="tbBtn running" id="tb-cerner"><div class="appIco ico-cerner">PC</div><span class="tbTip">PowerChart (Oracle Health EHR)</span></button>
   <div class="tray"><span>&#8963;</span><span>&#128246;</span><span>&#128266;</span><div class="clock"><div id="clock"></div><div>6/29/2026</div></div></div>
 </div>
 
@@ -350,13 +456,13 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   //  Window manager
   // ===================================================================
   let z = 10;
-  const wins = { browser: $('win-browser'), cprs: $('win-cprs') };
+  const wins = { browser: $('win-browser'), cprs: $('win-cprs'), cerner: $('win-cerner') };
   function focusWin(name) {
     Object.entries(wins).forEach(([n, w]) => { w.classList.toggle('active', n === name); });
     wins[name].style.zIndex = ++z;
     updateTaskbar();
   }
-  function showWin(name) { wins[name].classList.remove('hidden'); wins[name].dataset.closed = ''; focusWin(name); if (name === 'cprs') onCprsShown(); }
+  function showWin(name) { wins[name].classList.remove('hidden'); wins[name].dataset.closed = ''; focusWin(name); if (name === 'cprs') onCprsShown(); if (name === 'cerner') onCernerShown(); }
   function minimize(name) { wins[name].classList.add('hidden'); wins[name].classList.remove('active'); updateTaskbar(); }
   function updateTaskbar() {
     Object.entries(wins).forEach(([n, w]) => {
@@ -421,10 +527,10 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   const tick = () => { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
   tick(); setInterval(tick, 15000);
   // Maximize both windows on small screens
-  if (innerWidth < 1100) { wins.browser.classList.add('max'); wins.cprs.classList.add('max'); }
+  if (innerWidth < 1100) { wins.browser.classList.add('max'); wins.cprs.classList.add('max'); wins.cerner.classList.add('max'); }
   else {
     const fit = (w, l, t) => { w.style.left = l + 'px'; w.style.top = t + 'px'; w.style.width = Math.min(1500, innerWidth - l - 30) + 'px'; w.style.height = (innerHeight - 44 - t - 16) + 'px'; };
-    fit(wins.browser, 100, 12); fit(wins.cprs, 130, 30);
+    fit(wins.browser, 100, 12); fit(wins.cprs, 130, 30); fit(wins.cerner, 160, 48);
   }
 
   // ===================================================================
@@ -766,6 +872,194 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     const ccId = store.getItem('ccSelectedPatient');
     if (ccId && byId[ccId]) selectPatient(ccId); else { renderHeader(); setTab('notes'); patientDialog(true); }
   }
+
+  // ===================================================================
+  //  PowerChart (Oracle Health / Cerner) look-alike: patient search,
+  //  banner, Documentation with + Add, Save (In Progress) and Sign/Submit
+  // ===================================================================
+  const PC_TYPES = ['Telehealth Care Coordination Note', 'Remote Patient Monitoring Note', 'Home Telehealth Note', 'Care Management Note',
+    'Telephone Encounter Note', 'Nursing Note', 'Primary Care Note'];
+  const PC_KEY = 'pcNotes', pcFmtD = d => `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`, pcFmtT = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const mrn = p => '1' + p.ssn.replace(/\D/g, '').slice(-6).padStart(9, '0');
+  const progName = p => p.prog === 'HTN' ? 'Hypertension' : p.prog === 'HF' ? 'Heart Failure' : 'MOVE! Weight Management';
+  let pcNotes = getJson(PC_KEY, null);
+  if (!pcNotes) {
+    pcNotes = {};
+    pts.forEach(p => {
+      const d1 = new Date(2026, 0, 2, 10, 20), d2 = new Date(2026, 3, 15, 14, 12);
+      pcNotes[p.id] = [
+        { id: p.id + '-c1', type: 'Home Telehealth Note', subject: 'Home Telehealth enrollment', date: d1.toISOString(), author: 'BORNE, BEN', status: 'Auth (Verified)', signedAt: d1.toISOString(),
+          html: `<p>Patient enrolled in VA Home Telehealth (Remote Patient Monitoring) ${progName(p)} program.</p><p>Equipment issued and patient instructed on daily use. Patient verbalized understanding and completed a session independently.</p><p>Plan: follow per Home Telehealth protocol.</p>` },
+        { id: p.id + '-c2', type: 'Remote Patient Monitoring Note', subject: 'Periodic evaluation', date: d2.toISOString(), author: 'BORNE, BEN', status: 'Auth (Verified)', signedAt: d2.toISOString(),
+          html: '<p>Periodic evaluation completed by telephone. Reviewed readings and DMP responses with patient.</p><p>Patient remains appropriate for Home Telehealth. Continue current plan of care.</p>' }];
+    });
+  }
+  const pcSave = () => store.setItem(PC_KEY, JSON.stringify(pcNotes));
+  let pcPt = null, pcView = 'docs', pcSel = null, pcEditing = null;
+  const pcList = () => (pcPt ? pcNotes[pcPt.id] || (pcNotes[pcPt.id] = []) : []);
+  const TOC = [['h', 'Menu'], ['workflow', 'Ambulatory Workflow'], ['results', 'Results Review'], ['orders', 'Orders'], ['meds', 'Medication List'],
+    ['docs', 'Documentation'], ['problems', 'Problems and Diagnoses'], ['allergies', 'Allergies'], ['vitals', 'Vital Signs'], ['histories', 'Histories'],
+    ['forms', 'Form Browser'], ['info', 'Patient Information'], ['h', 'Telehealth'], ['cc', 'CareConsole (Home Telehealth)']];
+  $('pcToc').innerHTML = TOC.map(([k, t]) => k === 'h' ? `<div class="h">${t}</div>` : `<div data-pc="${k}">${t}</div>`).join('');
+  $('pcToc').onclick = e => {
+    const d = e.target.closest('[data-pc]'); if (!d) return;
+    if (d.dataset.pc === 'cc') { navigate('worklist.html'); showWin('browser'); return; }
+    if (pcEditing && !pcLeave()) return;
+    pcView = d.dataset.pc; pcRender();
+  };
+  function pcBanner() {
+    if (!pcPt) { $('pcBanner').innerHTML = '<div class="nm">No patient selected<small>Use the search box to open a chart</small></div>'; return; }
+    const p = pcPt;
+    $('pcBanner').innerHTML = `<div class="nm">${esc(p.last)}, ${esc(p.first)}<small>${progName(p)} &middot; Home Telehealth</small></div>
+      <div class="f"><b>DOB:</b> ${pcFmtD(p.dob)} &nbsp; <b>Age:</b> ${age(p)} years &nbsp; <b>Sex:</b> ${p.sex === 'F' ? 'Female' : 'Male'}</div>
+      <div class="f"><b>MRN:</b> ${mrn(p)} &nbsp; <b>Code Status:</b> Full Code</div>
+      <div class="f"><b>Loc:</b> VA Home Telehealth &nbsp; <b>Enc Type:</b> Telehealth</div>
+      <div class="f"><b>Allergies:</b> <span class="alg">No Known Allergies</span></div>
+      <div class="f"><b>PCP:</b> PROVIDER, PRIMARY &nbsp; <b>Isolation:</b> --</div>
+      <div class="f"><b>Fin#:</b> ${mrn(p).slice(3)}26 &nbsp; <b>Admit:</b> 01/01/2026</div>`;
+    $('pcTitle').textContent = `PowerChart Organizer for BORNE, BEN  —  ${p.last}, ${p.first}`;
+  }
+  function pcRender() {
+    pcBanner();
+    document.querySelectorAll('#pcToc [data-pc]').forEach(d => d.classList.toggle('on', d.dataset.pc === pcView));
+    const main = $('pcMain');
+    if (!pcPt) { main.innerHTML = '<div class="pcEmpty">Search for a patient in the box at the top right to open the chart.</div>'; return; }
+    const head = (t, btns = '') => `<div class="pcViewHead"><h2>${t}</h2>${btns}</div>`;
+    if (pcView === 'docs') {
+      if (pcEditing) return pcRenderEditor();
+      const list = [...pcList()].sort((a, b) => b.date.localeCompare(a.date)), sel = list.find(n => n.id === pcSel);
+      main.innerHTML = head('Documentation', `<button class="pcBtn primary" id="pcAdd">+ Add</button><button class="pcBtn" id="pcModify"${sel && sel.status === 'In Progress' ? '' : ' disabled'}>Modify</button><button class="pcBtn" id="pcSignSel"${sel && sel.status === 'In Progress' ? '' : ' disabled'}>Sign</button><button class="pcBtn" id="pcDel"${sel && sel.status === 'In Progress' ? '' : ' disabled'}>Delete</button>`) +
+        `<div class="pcDocs"><div class="pcList"><table><thead><tr><th>Date/Time</th><th>Type</th><th>Subject</th><th>Status</th><th>Author</th></tr></thead><tbody>${list.map(n => {
+          const d = new Date(n.date);
+          return `<tr data-doc="${n.id}" class="${n.id === pcSel ? 'sel' : ''}"><td>${pcFmtD(d)} ${pcFmtT(d)}</td><td>${esc(n.type)}</td><td>${esc(n.subject)}</td><td class="${n.status === 'In Progress' ? 'ip' : ''}">${n.status}</td><td>${esc(n.author)}</td></tr>`; }).join('')}</tbody></table></div>
+        <div class="pcPreview" id="pcPreview">${sel ? pcDocHtml(sel) : '<div class="pcEmpty">Select a document to view it.</div>'}</div></div>`;
+      $('pcAdd').onclick = pcNew;
+      $('pcModify').onclick = () => { if (sel) { pcEditing = sel.id; pcRender(); } };
+      $('pcSignSel').onclick = () => sel && pcSignDialog(sel);
+      $('pcDel').onclick = () => { if (sel && confirm('Delete this In Progress document?')) { pcNotes[pcPt.id] = pcList().filter(n => n.id !== sel.id); pcSel = null; pcSave(); pcRender(); } };
+      main.querySelector('tbody').onclick = e => { const r = e.target.closest('[data-doc]'); if (r) { pcSel = r.dataset.doc; pcRender(); } };
+      main.querySelector('tbody').ondblclick = e => { const r = e.target.closest('[data-doc]'); const n = r && pcList().find(x => x.id === r.dataset.doc); if (n && n.status === 'In Progress') { pcEditing = n.id; pcRender(); } };
+      $('pcStat').textContent = 'Documentation';
+      return;
+    }
+    if (pcView === 'problems') { main.innerHTML = head('Problems and Diagnoses') + `<div class="pcSimple"><table><tr><th>Name</th><th>Classification</th><th>Status</th><th>Onset</th></tr>${PROBLEMS[pcPt.prog].map(x => `<tr><td>${esc(x.replace(/\s*\(SCT.*\)/, ''))}</td><td>Medical</td><td>Active</td><td>--</td></tr>`).join('')}</table></div>`; return; }
+    if (pcView === 'meds') { main.innerHTML = head('Medication List') + `<div class="pcSimple"><table><tr><th>Medication</th><th>Status</th><th>Type</th></tr>${MEDS[pcPt.prog].map(x => `<tr><td>${esc(x.replace(/\s+Active$/, '').toLowerCase())}</td><td>Ordered</td><td>Home Medication</td></tr>`).join('')}</table></div>`; return; }
+    if (pcView === 'allergies') { main.innerHTML = head('Allergies') + '<div class="pcSimple"><table><tr><th>Substance</th><th>Reaction</th><th>Severity</th></tr><tr><td colspan="3">No Known Allergies (reviewed 01/02/2026)</td></tr></table></div>'; return; }
+    main.innerHTML = head(TOC.find(t => t[0] === pcView)[1]) + '<div class="pcEmpty">This view is not part of the mockup.<br>Use <b>Documentation</b> to create and sign a note.</div>';
+  }
+  function pcDocHtml(n) {
+    const d = new Date(n.date), sd = n.signedAt ? new Date(n.signedAt) : null;
+    return `<div class="pcDoc"><h3>${esc(n.type)}</h3><div class="meta">${esc(pcPt.last)}, ${esc(pcPt.first)} &nbsp;|&nbsp; MRN ${mrn(pcPt)} &nbsp;|&nbsp; DOB ${pcFmtD(pcPt.dob)}<br>
+      <b>Subject:</b> ${esc(n.subject)} &nbsp;|&nbsp; <b>Date of Service:</b> ${pcFmtD(d)} ${pcFmtT(d)} &nbsp;|&nbsp; <b>Status:</b> ${n.status}</div>
+      <div class="body">${n.html}</div>
+      <div class="sig">${sd ? `Electronically Signed on ${pcFmtD(sd)} ${pcFmtT(sd)} EDT<br>${esc(n.author)}, RN, Home Telehealth Care Coordinator` : `<i>In Progress — not signed. Last saved by ${esc(n.author)}.</i>`}</div></div>`;
+  }
+  function pcNew() {
+    const d = nowOnToday(), n = { id: `${pcPt.id}-${Date.now()}`, type: PC_TYPES[0], subject: '', date: d.toISOString(), author: 'BORNE, BEN', status: 'In Progress', html: '', isNew: true };
+    pcList().push(n); pcEditing = n.id; pcSel = n.id; pcRender();
+  }
+  function pcRenderEditor() {
+    const n = pcList().find(x => x.id === pcEditing), d = new Date(n.date);
+    $('pcMain').innerHTML = `<div class="pcViewHead"><h2>Documentation &rsaquo; ${n.isNew ? 'New document' : 'Modify document'}</h2></div>
+      <div class="pcEdit">
+        <div class="pcFields">
+          <div><label>Type <span class="req">*</span></label><select id="pcType">${PC_TYPES.map(t => `<option${t === n.type ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
+          <div><label>Subject <span class="req">*</span></label><input id="pcSubject" value="${esc(n.subject)}" placeholder="e.g. Home Telehealth review"></div>
+          <div><label>Date of Service</label><input value="${pcFmtD(d)} ${pcFmtT(d)}" readonly></div>
+          <div><label>Author</label><input value="BORNE, BEN" readonly></div>
+        </div>
+        <div class="pcRte">
+          <div class="pcRteBar">
+            <select id="pcFont" title="Font"><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Times New Roman">Times New Roman</option></select>
+            <select id="pcSize" title="Size"><option value="2">9</option><option value="3" selected>10</option><option value="4">12</option><option value="5">14</option></select>
+            <span class="sep"></span>
+            <button data-rte="bold" title="Bold"><b>B</b></button><button data-rte="italic" title="Italic"><i>I</i></button><button data-rte="underline" title="Underline"><u>U</u></button>
+            <span class="sep"></span>
+            <button data-rte="insertUnorderedList" title="Bullets">&#8226;&#8801;</button><button data-rte="insertOrderedList" title="Numbering">1.&#8801;</button>
+            <button data-rte="outdent" title="Decrease indent">&#8676;</button><button data-rte="indent" title="Increase indent">&#8677;</button>
+            <span class="sep"></span>
+            <button data-rte="undo" title="Undo">&#8630;</button><button data-rte="redo" title="Redo">&#8631;</button>
+          </div>
+          <div class="pcRteArea" id="pcRte" contenteditable="true" spellcheck="true" data-ph="Type or paste the note here. Pasted reports keep their alignment (Courier New)."></div>
+        </div>
+        <div class="pcEditFoot"><span class="hint">Paste with Ctrl+V. Text copied from CareConsole or Ai Abe keeps its line breaks and columns.</span>
+          <button class="pcBtn primary" id="pcSign">Sign/Submit</button><button class="pcBtn" id="pcSaveBtn">Save</button><button class="pcBtn" id="pcSaveClose">Save &amp; Close</button><button class="pcBtn" id="pcCancel">Cancel</button></div>
+      </div>`;
+    const rte = $('pcRte'); rte.innerHTML = n.html;
+    const sync = () => { n.type = $('pcType').value; n.subject = $('pcSubject').value.trim(); n.html = rte.innerHTML; };
+    rte.addEventListener('input', sync); $('pcType').onchange = sync; $('pcSubject').oninput = sync;
+    rte.addEventListener('paste', e => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain').replace(/\r\n?/g, '\n');
+      // Reports with columns or rules (CPRS / CareConsole / Ai Abe text) go in as fixed-width blocks so they stay aligned
+      const fixed = /={6,}|-{6,}|\S {3,}\S/.test(text);
+      if (!fixed) { document.execCommand('insertText', false, text); sync(); return; }
+      // Insert the report as its own block (a <pre>), after the line the cursor is on
+      const sel = getSelection();
+      let range = sel.rangeCount && rte.contains(sel.anchorNode) ? sel.getRangeAt(0) : null;
+      if (!range) { range = document.createRange(); range.selectNodeContents(rte); range.collapse(false); }
+      range.deleteContents();
+      let block = range.startContainer;
+      while (block && block !== rte && block.parentNode !== rte) block = block.parentNode;
+      const pre = document.createElement('pre'); pre.textContent = text;
+      const after = document.createElement('p'); after.innerHTML = '<br>';
+      if (!block || block === rte) { range.insertNode(after); range.insertNode(pre); }
+      else if (block.nodeType === 3 || !/^(P|DIV|PRE|UL|OL|H\d)$/.test(block.nodeName)) {
+        // loose text directly in the editor: break the line, then add the block
+        const tail = document.createRange(); tail.setStart(range.startContainer, range.startOffset); tail.setEndAfter(rte.lastChild);
+        const rest = tail.extractContents();
+        rte.appendChild(pre); after.innerHTML = ''; after.appendChild(rest.textContent ? rest : document.createElement('br')); rte.appendChild(after);
+      } else { block.after(pre); pre.after(after); }
+      const r2 = document.createRange(); r2.setStart(after, 0); r2.collapse(true); sel.removeAllRanges(); sel.addRange(r2);
+      sync();
+    });
+    document.querySelectorAll('[data-rte]').forEach(b => b.onmousedown = e => { e.preventDefault(); document.execCommand(b.dataset.rte); sync(); });
+    $('pcFont').onchange = () => { rte.focus(); document.execCommand('fontName', false, $('pcFont').value); sync(); };
+    $('pcSize').onchange = () => { rte.focus(); document.execCommand('fontSize', false, $('pcSize').value); sync(); };
+    const valid = () => { sync(); if (!n.subject) { $('pcSubject').focus(); $('pcSubject').style.borderColor = '#b00020'; $('pcStat').textContent = 'Subject is required.'; return false; } return true; };
+    $('pcSaveBtn').onclick = () => { if (!valid()) return; delete n.isNew; pcSave(); $('pcStat').textContent = 'Document saved (In Progress)'; };
+    $('pcSaveClose').onclick = () => { if (!valid()) return; delete n.isNew; pcEditing = null; pcSave(); pcRender(); $('pcStat').textContent = 'Document saved (In Progress)'; };
+    $('pcSign').onclick = () => { if (!valid()) return; if (!rte.textContent.trim()) { $('pcStat').textContent = 'The document is empty.'; rte.focus(); return; } pcSignDialog(n); };
+    $('pcCancel').onclick = () => { if (n.isNew) { pcNotes[pcPt.id] = pcList().filter(x => x.id !== n.id); pcSel = null; } pcEditing = null; pcSave(); pcRender(); };
+    setTimeout(() => (n.subject ? rte : $('pcSubject')).focus(), 0);
+    $('pcStat').textContent = 'Editing document';
+  }
+  function pcSignDialog(n) {
+    const d = new Date(n.date), m = $('pcModal');
+    m.innerHTML = `<div class="pcModal" role="dialog"><div class="mh"><span>Sign/Submit Note</span><span style="cursor:default" data-x>&#10005;</span></div>
+      <div class="mb"><span class="k">Type:</span><span>${esc(n.type)}</span><span class="k">Subject:</span><span>${esc(n.subject)}</span>
+        <span class="k">Date of Service:</span><span>${pcFmtD(d)} ${pcFmtT(d)}</span><span class="k">Author:</span><span>BORNE, BEN</span>
+        <span class="k">Forward to:</span><span><select style="width:100%;font:inherit;font-size:12px"><option>(none)</option><option>PROVIDER, PRIMARY - Review</option><option>PROVIDER, PRIMARY - Sign</option></select></span></div>
+      <div class="mf"><button class="pcBtn primary" data-ok>Sign</button><button class="pcBtn" data-x>Cancel</button></div></div>`;
+    m.classList.add('open');
+    const close = () => { m.classList.remove('open'); m.innerHTML = ''; };
+    m.querySelectorAll('[data-x]').forEach(b => b.onclick = close);
+    m.querySelector('[data-ok]').onclick = () => {
+      n.status = 'Auth (Verified)'; n.signedAt = nowOnToday().toISOString(); delete n.isNew;
+      pcEditing = null; pcSel = n.id; pcSave(); close(); pcRender(); $('pcStat').textContent = 'Document signed';
+    };
+  }
+  function pcLeave() { const n = pcList().find(x => x.id === pcEditing); if (n && n.isNew && !n.subject && !n.html) pcNotes[pcPt.id] = pcList().filter(x => x.id !== n.id); else if (n) { delete n.isNew; pcSave(); } pcEditing = null; return true; }
+  function pcOpen(id) { if (pcEditing) pcLeave(); pcPt = byId[id]; pcSel = null; pcView = 'docs'; pcRender(); $('pcStat').textContent = `Chart opened: ${pcPt.last}, ${pcPt.first}`; }
+  // Patient search
+  const find = $('pcFind'), res = $('pcResults');
+  find.addEventListener('input', () => {
+    const q = find.value.trim().toUpperCase().replace(/\s*,\s*/, ',');
+    if (!q) { res.style.display = 'none'; return; }
+    const hits = pts.filter(p => (p.last + ',' + p.first).includes(q) || p.first.includes(q) || mrn(p).includes(q));
+    res.innerHTML = hits.length ? hits.map(p => `<div data-pp="${p.id}">${p.last}, ${p.first} <small>&nbsp;DOB ${pcFmtD(p.dob)} &middot; MRN ${mrn(p)}</small></div>`).join('') : '<div><small>No matching patients</small></div>';
+    res.style.display = 'block';
+  });
+  find.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = res.querySelector('[data-pp]'); if (first) first.click(); } if (e.key === 'Escape') res.style.display = 'none'; });
+  res.addEventListener('mousedown', e => { const r = e.target.closest('[data-pp]'); if (r) { e.preventDefault(); pcOpen(r.dataset.pp); find.value = ''; res.style.display = 'none'; } });
+  find.addEventListener('blur', () => setTimeout(() => res.style.display = 'none', 150));
+  let cernerStarted = false;
+  function onCernerShown() {
+    if (cernerStarted) return; cernerStarted = true;
+    const ccId = store.getItem('ccSelectedPatient');
+    if (ccId && byId[ccId]) pcOpen(ccId); else { pcRender(); setTimeout(() => find.focus(), 0); }
+  }
+  pcRender();
   renderHeader(); setTab('notes');
   focusWin('browser'); updateTaskbar();
 

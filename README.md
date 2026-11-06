@@ -5,7 +5,7 @@ All patients and data are **synthetic**; nothing connects to a real system.
 
 | Page | What it shows |
 |---|---|
-| `va-desktop.html` | A simulated VA Windows workstation. A browser window runs the CareConsole pages; a CPRS window (open it from the taskbar) lets you create a progress note, paste text into it (80-column wrap), save it unsigned, or sign it. |
+| `va-desktop.html` | A simulated VA Windows workstation behind a Windows-style lock screen. A browser window runs the CareConsole pages. Two EHR windows open from the taskbar: **CPRS** (create a progress note, paste text with 80-column wrap, save unsigned or sign) and a **PowerChart** look-alike for Oracle Health sites (Documentation > + Add, rich-text note, Save as In Progress or Sign/Submit). |
 | `worklist.html` | CareConsole Work List for nine sample patients, with expandable history (7/14/30 days), assess/acknowledge, filters, header menus, and the **Copy To CPRS** dialog that builds the CPRS report text. |
 | `patient-analysis.html` | Patient Analysis page (MONITOR > Patient Analysis Page): risk levels, trend, monthly summary, 6-month charts, events, DMP responses, and a BLUF + SBAR note (**Compile note**) that can be copied as 80-column plain text for CPRS. |
 
