@@ -188,9 +188,54 @@
   .dlg .df { display: flex; justify-content: flex-end; gap: 6px; padding: 0 12px 10px; }
   .dlg .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
   .dlg .err { color: #c00000; min-height: 14px; margin-top: 4px; }
+
+  /* ---------- Windows lock screen (PIN) ---------- */
+  .lockScreen { position: fixed; inset: 0; z-index: 100000; color: #fff; background: linear-gradient(160deg, #0b2a4a 0%, #12406e 45%, #1d5a8e 100%); overflow: hidden; user-select: none; }
+  .lockScreen.gone { display: none; }
+  .lockScreen .bg { position: absolute; inset: -40px; background: radial-gradient(ellipse at 70% 30%, rgba(77,166,255,.35), transparent 60%), radial-gradient(ellipse at 20% 80%, rgba(0,60,120,.6), transparent 60%); transition: filter .35s; }
+  .lockScreen.signin .bg { filter: blur(24px) brightness(.75); }
+  .lockScreen .clockBig { position: absolute; left: 0; right: 0; top: 13vh; text-align: center; transition: opacity .3s, transform .3s; text-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  .lockScreen .clockBig .t { font-size: 112px; font-weight: 600; letter-spacing: -1px; line-height: 1; }
+  .lockScreen .clockBig .d { font-size: 24px; margin-top: 12px; }
+  .lockScreen .hint { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center; font-size: 13px; opacity: .8; transition: opacity .3s; }
+  .lockScreen.signin .clockBig, .lockScreen.signin .hint { opacity: 0; transform: translateY(-40px); pointer-events: none; }
+  .lockScreen .panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -46%); width: 320px; text-align: center; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; }
+  .lockScreen.signin .panel { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+  .lockScreen .avatar { width: 190px; height: 190px; border-radius: 50%; margin: 0 auto 18px; background: rgba(255,255,255,.18); display: grid; place-items: center; font-size: 64px; font-weight: 300; }
+  .lockScreen .who { font-size: 28px; font-weight: 600; margin-bottom: 22px; }
+  .lockScreen .pinRow { position: relative; width: 296px; margin: 0 auto; }
+  .lockScreen .pinRow input { width: 100%; height: 36px; border-radius: 4px; border: 1px solid rgba(255,255,255,.5); border-bottom: 2px solid #fff; background: rgba(0,0,0,.25); color: #fff; font-size: 18px; letter-spacing: 6px; padding: 0 44px 0 12px; outline: none; font-family: inherit; }
+  .lockScreen .pinRow input::placeholder { letter-spacing: 0; color: rgba(255,255,255,.7); font-size: 14px; }
+  .lockScreen .pinRow input:focus { border-bottom-color: #4cc2ff; background: rgba(0,0,0,.35); }
+  .lockScreen .pinRow button { position: absolute; right: 4px; top: 4px; width: 30px; height: 28px; border: 0; border-radius: 3px; background: rgba(255,255,255,.15); color: #fff; font-size: 16px; cursor: pointer; }
+  .lockScreen .pinRow button:hover { background: rgba(255,255,255,.28); }
+  .lockScreen .msg { margin-top: 16px; font-size: 14px; min-height: 20px; }
+  .lockScreen .msgBtn { margin-top: 14px; min-width: 120px; height: 32px; border: 1px solid rgba(255,255,255,.6); background: rgba(255,255,255,.12); color: #fff; border-radius: 4px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .lockScreen .msgBtn:hover { background: rgba(255,255,255,.25); }
+  .lockScreen .opts { margin-top: 22px; font-size: 13px; opacity: .85; }
+  .lockScreen .tray2 { position: absolute; right: 26px; bottom: 22px; display: flex; gap: 20px; font-size: 18px; opacity: .9; }
+  .lockScreen .shake { animation: shake .35s; }
+  @keyframes shake { 20%, 60% { margin-left: -8px; } 40%, 80% { margin-left: 8px; } }
 </style>
 </head>
 <body>
+
+<!-- Windows lock screen: the desktop stays covered until the PIN is entered -->
+<div class="lockScreen" id="lock" role="dialog" aria-label="Lock screen">
+  <div class="bg"></div>
+  <div class="clockBig"><div class="t" id="lockTime"></div><div class="d">Monday, June 29</div></div>
+  <div class="hint">Click or press any key to sign in</div>
+  <div class="panel" id="lockPanel">
+    <div class="avatar">BB</div>
+    <div class="who">Ben Borne</div>
+    <div id="pinArea">
+      <div class="pinRow"><input type="password" id="pin" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="PIN" maxlength="12"><button id="pinGo" aria-label="Submit">&#8594;</button></div>
+      <div class="opts">Sign-in options</div>
+    </div>
+    <div id="pinMsg" style="display:none"><div class="msg" id="pinMsgText"></div><button class="msgBtn" id="pinOk">OK</button></div>
+  </div>
+  <div class="tray2"><span title="Network">&#128246;</span><span title="Accessibility">&#9855;</span><span title="Power">&#9211;</span></div>
+</div>
 
 <div class="wallText"><b>U.S. Department of Veterans Affairs</b><span>VA workstation (simulated) · VISN 00 · Mockup Medical Center</span></div>
 
@@ -273,7 +318,7 @@
     <div class="app" data-open="browser" data-url="worklist.html"><div class="appIco" style="background:#004C97;font-size:11px">CC</div>CareConsole</div>
     <div class="app" data-open="browser" data-url="patient-analysis.html"><div class="appIco" style="background:#0b6a8a;font-size:11px">PA</div>Patient Analysis</div>
   </div>
-  <div class="user">&#128100; Borne, Ben (VHA Care Coordinator)</div>
+  <div class="user" style="display:flex;justify-content:space-between;align-items:center"><span>&#128100; Borne, Ben (VHA Care Coordinator)</span><span id="btnLock" style="cursor:pointer;padding:4px 8px;border-radius:4px" title="Lock">&#128274; Lock</span></div>
 </div>
 <div class="taskbar">
   <button class="tbBtn" id="tbStart"><span class="ico-start"><i></i><i></i><i></i><i></i></span><span class="tbTip">Start</span></button>
@@ -401,7 +446,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   $('bReload').onclick = () => { try { frame.contentWindow.location.reload(); } catch { frame.src = frame.src; } };
   document.querySelectorAll('[data-nav]').forEach(a => a.onclick = () => navigate(a.dataset.nav));
   if (location.protocol === 'data:' || location.protocol === 'about:') $('blocked').style.display = 'flex';
-  navigate('worklist.html');
+  // CareConsole loads only after the PIN is entered (see the lock screen below)
 
   // ===================================================================
   //  CPRS
@@ -723,6 +768,53 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   }
   renderHeader(); setTab('notes');
   focusWin('browser'); updateTaskbar();
+
+  // ===================================================================
+  //  Lock screen. Only a hash of the PIN is kept in this file.
+  //  This is a deterrent for a public demo, not real security.
+  // ===================================================================
+  const PIN_HASH = '2e13dc89';
+  const pinHash = p => { let x = 0x811c9dc5; const s = 'careconsole-lock|' + p; for (let r = 0; r < 2000; r++) for (const ch of s + r) { x ^= ch.charCodeAt(0); x = Math.imul(x, 0x01000193) >>> 0; } return x.toString(16).padStart(8, '0'); };
+  const sess = (() => { try { sessionStorage.setItem('__p', '1'); sessionStorage.removeItem('__p'); return sessionStorage; } catch { const m = new Map(); return { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, v), removeItem: k => m.delete(k) }; } })();
+  const lock = $('lock'), pin = $('pin');
+  let fails = 0, lockedUntil = 0, unlockedOnce = false;
+  const lockTick = () => { $('lockTime').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, ''); };
+  lockTick(); setInterval(lockTick, 10000);
+  function showSignin() { if (lock.classList.contains('signin')) return; lock.classList.add('signin'); setTimeout(() => pin.focus(), 250); }
+  lock.addEventListener('mousedown', e => { if (!lock.classList.contains('signin')) { e.preventDefault(); showSignin(); } });
+  document.addEventListener('keydown', e => { if (!lock.classList.contains('gone') && !lock.classList.contains('signin')) { e.preventDefault(); showSignin(); } }, true);
+  function message(text) { $('pinArea').style.display = 'none'; $('pinMsg').style.display = ''; $('pinMsgText').textContent = text; $('pinOk').focus(); }
+  $('pinOk').onclick = () => {
+    if (Date.now() < lockedUntil) return;
+    $('pinMsg').style.display = 'none'; $('pinArea').style.display = ''; pin.value = ''; pin.focus();
+  };
+  function tryPin() {
+    if (Date.now() < lockedUntil || !pin.value) return;
+    if (pinHash(pin.value) === PIN_HASH) { unlock(); return; }
+    fails++; pin.value = '';
+    $('lockPanel').classList.remove('shake'); void $('lockPanel').offsetWidth; $('lockPanel').classList.add('shake');
+    if (fails % 5 === 0) {
+      lockedUntil = Date.now() + 30000;
+      const count = () => { const sec = Math.ceil((lockedUntil - Date.now()) / 1000); if (sec > 0) { message("You've entered an incorrect PIN several times. Try again in " + sec + " seconds."); setTimeout(count, 1000); } else message('The PIN is incorrect. Try again.'); };
+      count();
+    } else message('The PIN is incorrect. Try again.');
+  }
+  pin.addEventListener('input', () => { pin.value = pin.value.replace(/\D/g, ''); if (pin.value.length === 4 && pinHash(pin.value) === PIN_HASH) unlock(); });
+  pin.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tryPin(); } });
+  $('pinGo').onclick = tryPin;
+  function unlock() {
+    sess.setItem('ccUnlocked', '1');
+    lock.classList.add('gone'); lock.classList.remove('signin'); pin.value = ''; fails = 0;
+    if (!unlockedOnce) { unlockedOnce = true; navigate('worklist.html'); }
+  }
+  function relock() {
+    sess.removeItem('ccUnlocked');
+    $('startMenu').classList.remove('open');
+    $('pinMsg').style.display = 'none'; $('pinArea').style.display = '';
+    lock.classList.remove('gone', 'signin');
+  }
+  $('btnLock').onclick = e => { e.stopPropagation(); relock(); };
+  if (sess.getItem('ccUnlocked') === '1') unlock();
 })();
 </script>
 </body>

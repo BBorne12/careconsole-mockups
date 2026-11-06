@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+// Opens only after the VA desktop has been unlocked with the PIN in this browser tab
+(function () { var ok = false; try { ok = sessionStorage.getItem('ccUnlocked') === '1'; } catch (e) { }
+  if (!ok) { document.documentElement.style.display = 'none'; if (window.top === window) location.replace('va-desktop.html'); } })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Worklist - CareConsole® Care Coordinator Web Viewer</title>
 <style>
