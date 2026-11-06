@@ -1050,7 +1050,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     res.innerHTML = hits.length ? hits.map(p => `<div data-pp="${p.id}">${p.last}, ${p.first} <small>&nbsp;DOB ${pcFmtD(p.dob)} &middot; MRN ${mrn(p)}</small></div>`).join('') : '<div><small>No matching patients</small></div>';
     res.style.display = 'block';
   });
-  find.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = res.querySelector('[data-pp]'); if (first) first.click(); } if (e.key === 'Escape') res.style.display = 'none'; });
+  find.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = res.querySelector('[data-pp]'); if (first) { pcOpen(first.dataset.pp); find.value = ''; res.style.display = 'none'; } } if (e.key === 'Escape') res.style.display = 'none'; });
   res.addEventListener('mousedown', e => { const r = e.target.closest('[data-pp]'); if (r) { e.preventDefault(); pcOpen(r.dataset.pp); find.value = ''; res.style.display = 'none'; } });
   find.addEventListener('blur', () => setTimeout(() => res.style.display = 'none', 150));
   let cernerStarted = false;
