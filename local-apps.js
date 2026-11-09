@@ -1,5 +1,5 @@
 // Adds a second browser window to the simulated VA desktop that runs the
-// Omnivisor Pro mockup (omnivisor.html). "Fauxtronic" is a fictional vendor.
+// Omnivisor Novice mockup (omnivisor.html). "Fauxtronic" is a fictional vendor.
 (() => {
   'use strict';
   if (!window.VADesk) return;
@@ -21,34 +21,34 @@
   w.id = 'win-ov';
   w.style.cssText = 'left:190px;top:60px;width:1180px;height:720px';
   w.innerHTML = `
-  <div class="titlebar" data-drag><div class="tIco appIco ico-chrome"></div><div class="tText" id="ovTitle">Omnivisor Pro</div>
+  <div class="titlebar" data-drag><div class="tIco appIco ico-chrome"></div><div class="tText" id="ovTitle">Omnivisor Novice</div>
     <div class="tBtns"><button data-min title="Minimize">&#8211;</button><button data-max title="Maximize">&#9744;</button><button class="x" data-close title="Close">&#10005;</button></div></div>
-  <div class="bTabs"><div class="bTab"><div class="fav ov">OV</div><span id="ovTab">Omnivisor Pro</span><span style="color:#888">&#10005;</span></div><div class="bTab newT" style="min-width:30px;background:transparent">+</div></div>
+  <div class="bTabs"><div class="bTab"><div class="fav ov">OV</div><span id="ovTab">Omnivisor Novice</span><span style="color:#888">&#10005;</span></div><div class="bTab newT" style="min-width:30px;background:transparent">+</div></div>
   <div class="bBar">
     <button id="ovBack" title="Back">&#8592;</button><button id="ovFwd" title="Forward">&#8594;</button><button id="ovReload" title="Refresh">&#8635;</button>
-    <div class="addr"><span class="lock">&#128274;</span><span><span class="host">vaomnivisor.fauxtronic.example</span><span class="path" id="ovPath">/OmnivisorPro/Login.aspx</span></span></div>
+    <div class="addr"><span class="lock">&#128274;</span><span><span class="host">vaomnivisor.fauxtronic.example</span><span class="path" id="ovPath">/OmnivisorNovice/Login.aspx</span></span></div>
     <button title="Bookmark">&#9734;</button><button title="Customize and control">&#8942;</button>
   </div>
-  <div class="bFavs"><a id="ovFavHome"><span class="fav ov">OV</span>VA Omnivisor Pro</a><a><span class="fav" style="background:#888">VA</span>VA Intranet</a></div>
-  <div class="bView"><iframe id="ovFrame" title="Omnivisor Pro" allow="clipboard-read; clipboard-write"></iframe></div>
+  <div class="bFavs"><a id="ovFavHome"><span class="fav ov">OV</span>VA Omnivisor Novice</a><a><span class="fav" style="background:#888">VA</span>VA Intranet</a></div>
+  <div class="bView"><iframe id="ovFrame" title="Omnivisor Novice" allow="clipboard-read; clipboard-write"></iframe></div>
   ${RZ}`;
   $('win-cerner').after(w);
 
   // Taskbar button after PowerChart
   const tb = document.createElement('button');
   tb.className = 'tbBtn'; tb.id = 'tb-ov';
-  tb.innerHTML = '<div class="appIco ico-chrome"></div><span class="tbTip" id="ovTip">Omnivisor Pro - Browser</span>';
+  tb.innerHTML = '<div class="appIco ico-chrome"></div><span class="tbTip" id="ovTip">Omnivisor Novice - Browser</span>';
   $('tb-cerner').after(tb);
 
   // Desktop icon and Start menu entry
   const dicon = document.createElement('div');
   dicon.className = 'dicon';
-  dicon.innerHTML = '<div class="ico appIco ico-chrome"></div>Omnivisor Pro';
+  dicon.innerHTML = '<div class="ico appIco ico-chrome"></div>Omnivisor Novice';
   const lastIcon = [...document.querySelectorAll('.dicon')].pop();
   if (lastIcon) lastIcon.after(dicon);
   const app = document.createElement('div');
   app.className = 'app';
-  app.innerHTML = '<div class="appIco ico-chrome"></div>Omnivisor Pro';
+  app.innerHTML = '<div class="appIco ico-chrome"></div>Omnivisor Novice';
   const apps = document.querySelector('#startMenu .apps');
   if (apps) apps.appendChild(app);
 
@@ -64,12 +64,12 @@
   else { w.style.left = '190px'; w.style.top = '60px'; w.style.width = Math.min(1500, innerWidth - 220) + 'px'; w.style.height = (innerHeight - 44 - 60 - 16) + 'px'; }
 
   frame.addEventListener('load', () => {
-    let title = 'Omnivisor Pro', path = '';
+    let title = 'Omnivisor Novice', path = '';
     try { title = frame.contentDocument.title || title; path = frame.contentWindow.ovPath || ''; } catch { }
     $('ovTab').textContent = title;
     $('ovTitle').textContent = title + ' - Browser';
     $('ovTip').textContent = $('ovTitle').textContent;
-    $('ovPath').textContent = path || '/OmnivisorPro/Login.aspx';
+    $('ovPath').textContent = path || '/OmnivisorNovice/Login.aspx';
   });
   // The page reports its own "address" as the user moves between screens
   window.addEventListener('message', e => {

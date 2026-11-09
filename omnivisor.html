@@ -7,9 +7,9 @@
 (function () { var ok = false; try { ok = sessionStorage.getItem('ccUnlocked') === '1'; } catch (e) { }
   if (!ok) { document.documentElement.style.display = 'none'; if (window.top === window) location.replace('va-desktop.html'); } })();
 </script>
-<title>Omnivisor Pro</title>
+<title>Omnivisor Novice</title>
 <!--
-  Omnivisor Pro mockup for the simulated VA desktop. "Fauxtronic" is a
+  Omnivisor Novice mockup for the simulated VA desktop. "Fauxtronic" is a
   fictional vendor name used for this demo.
   All patient data is synthetic (the same nine mockup patients as CareConsole).
 -->
@@ -192,7 +192,7 @@
 
 <!-- ====================== Login ====================== -->
 <div id="login">
-  <div class="lgTop"><div class="logoTxt"><b>Omnivisor Pro</b><i>FAUXTRONIC TELEHEALTH</i></div></div>
+  <div class="lgTop"><div class="logoTxt"><b>Omnivisor Novice</b><i>FAUXTRONIC TELEHEALTH</i></div></div>
   <div class="lgWrap">
     <div class="lgBox">
       <div class="lgHead">Log In</div>
@@ -213,7 +213,7 @@
       </div>
     </div>
     <div class="lgArt">
-      <div class="brand"><b>Omnivisor&reg; Pro</b><span>VA HOME TELEHEALTH</span></div>
+      <div class="brand"><b>Omnivisor&reg; Novice</b><span>VA HOME TELEHEALTH</span></div>
       <div class="band"></div>
       <div class="pics"><div>&#128105;&#8205;&#9877;&#65039;</div><div>&#128116;</div><div>&#128200;</div><div>&#129658;</div></div>
       <div class="tag">REMOTE MONITORING FOR<br>VA HOME TELEHEALTH</div>
@@ -225,7 +225,7 @@
 <!-- ====================== Application ====================== -->
 <div id="app" hidden>
   <div class="hdr1">
-    <div class="logo"><div class="logoTxt"><b>Omnivisor Pro</b><i>Fauxtronic Telehealth</i></div></div>
+    <div class="logo"><div class="logoTxt"><b>Omnivisor Novice</b><i>Fauxtronic Telehealth</i></div></div>
     <div class="tools" id="tools">
       <div class="ti" data-act="home"><span>&#127968;</span><span class="tip">Home</span></div>
       <div class="ti" data-act="daily"><span>&#128101;</span><span class="tip">Daily Activity</span></div>
@@ -242,7 +242,7 @@
   <div class="hdr2" id="hdr2"></div>
   <div class="myView" id="myViewBar" hidden></div>
   <main id="main"></main>
-  <footer><span class="lnk" data-act="na" data-msg="The Document Repository is not available in this simulation.">Document Repository</span><span class="lnk" data-act="na" data-msg="The DMP Viewer is not available in this simulation.">DMP Viewer</span><span>Omnivisor&reg; Pro v3.4 (simulated)</span><span class="sim">Simulation for demonstration &ndash; synthetic patient data &ndash; local use only</span></footer>
+  <footer><span class="lnk" data-act="na" data-msg="The Document Repository is not available in this simulation.">Document Repository</span><span class="lnk" data-act="na" data-msg="The DMP Viewer is not available in this simulation.">DMP Viewer</span><span>Omnivisor&reg; Novice v3.4 (simulated)</span><span class="sim">Simulation for demonstration &ndash; synthetic patient data</span></footer>
 </div>
 <div class="menu" id="menu" hidden></div>
 
@@ -403,7 +403,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     render();
   }
   window.ovBack = () => { if (hist.length) { S = JSON.parse(hist.pop()); render(); } };
-  window.ovPath = '/OmnivisorPro/Login.aspx';
+  window.ovPath = '/OmnivisorNovice/Login.aspx';
   function report(path, title) { window.ovPath = path; try { parent.postMessage({ type: 'ov-nav', path, title }, '*'); } catch { } document.title = title; }
 
   // ===================================================================
@@ -534,7 +534,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       html += `<div class="qInfo"><div class="tot">${S.q === 'first' ? 'Veterans transmitting their first Health Check' : 'Possibly Inaccurate transmissions (not yet activated)'}: 0</div></div><table class="grid"><tr><td class="nodata">No Data Found</td></tr></table>`;
     }
     $('main').innerHTML = html;
-    report('/OmnivisorPro/DailyActivity.aspx', 'Omnivisor Pro - Daily Activity');
+    report('/OmnivisorNovice/DailyActivity.aspx', 'Omnivisor Novice - Daily Activity');
   }
 
   // ===================================================================
@@ -554,7 +554,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     $('main').innerHTML = `<div class="sec"><div class="secH">Search Results: ${res.length}</div>` + (res.length ? `<table class="grid"><tr><th>Name</th><th>SSN</th><th>Birth Date</th><th>DMP</th><th>Status</th><th>Device Id</th><th>Care Coordinator</th></tr>` +
       res.map(p => `<tr class="row" data-act="open" data-id="${p.id}"><td>${esc(p.name)}</td><td>${p.last4}</td><td>${p.dob}</td><td>${esc(p.dmp)}</td><td>Enrolled</td><td>${p.device}</td><td>${esc(USER.name)}</td></tr>`).join('') + '</table>'
       : '<table class="grid"><tr><td class="nodata">No Data Found</td></tr></table>') + '</div>';
-    report('/OmnivisorPro/Search.aspx', 'Omnivisor Pro - Search');
+    report('/OmnivisorNovice/Search.aspx', 'Omnivisor Novice - Search');
   }
   function renderAdvSearch() {
     $('main').innerHTML = `<div class="panelBox" style="max-width:520px"><div class="h">Search</div><div class="frm">
@@ -562,7 +562,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       <label>Status</label><select id="sStatus"><option value="en">Enrolled</option><option value="dis">Disenrolled</option><option value="all">All Records</option></select>
       <label>ICN</label><input type="text" id="sIcn"><label>SSN</label><input type="text" id="sSsn"><label>Internal ID</label><input type="text" id="sInt">
       <span></span><div><button class="btn" data-act="advGo">Search</button></div></div></div>`;
-    report('/OmnivisorPro/Search.aspx', 'Omnivisor Pro - Search');
+    report('/OmnivisorNovice/Search.aspx', 'Omnivisor Novice - Search');
   }
 
   // ===================================================================
@@ -575,7 +575,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     const fn = { data: tabData, contacts: tabContacts, history: tabHistory, status: tabStatus, follow: tabFollow, verify: tabVerify, setup: tabSetup }[S.rtab];
     html += fn(p);
     $('main').innerHTML = html;
-    report(`/OmnivisorPro/Patient/${S.rtab[0].toUpperCase() + S.rtab.slice(1)}.aspx?pid=${p.internal}`, `Omnivisor Pro - ${p.name}`);
+    report(`/OmnivisorNovice/Patient/${S.rtab[0].toUpperCase() + S.rtab.slice(1)}.aspx?pid=${p.internal}`, `Omnivisor Novice - ${p.name}`);
     if (S.rtab === 'verify') { const nb = $('noteBox'); if (nb) nb.addEventListener('input', () => { noteText[p.id] = nb.value; setJson('ovNoteText', noteText); }); }
   }
 
@@ -749,7 +749,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     else if (kind === 'rr') html += viewRr(p);
     else html += `<div class="vdBar">Display: ${daysSel(21, [7, 14, 21, 30, 60, 90, 180])}</div><div class="vdTabs"><div class="vdTab on">${label}</div></div><table class="grid" style="max-width:600px;margin-top:4px"><tr><td class="nodata">No Data Found</td></tr></table>`;
     $('main').innerHTML = html;
-    report(`/OmnivisorPro/Patient/ViewData.aspx?type=${kind}&pid=${p.internal}`, `Omnivisor Pro - ${label}`);
+    report(`/OmnivisorNovice/Patient/ViewData.aspx?type=${kind}&pid=${p.internal}`, `Omnivisor Novice - ${label}`);
   }
   function viewVss(p) {
     const days = rangeDays(S.vdDays).reverse().filter(i => p.tx[i] && (p.tx[i].wt != null || p.tx[i].sys != null));
@@ -772,7 +772,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     if (hasHr) cols.push(['HR', 3, i => p.tx[i].hr ?? '']);
     if (hasO) cols.push(['SpO2', 4, i => p.tx[i].spo2 ?? '']);
     const fmt = vals => vals.map((v, k) => String(v).padEnd(cols[k][1])).join('   ').trimEnd();
-    const lines = [`Vital Sign Summary: ${p.name} (last ${S.vdDays} days, ${mdy(TODAY_I - S.vdDays + 1)} - ${mdy(TODAY_I)})`, 'All times are EST. Source: Omnivisor Pro (Commander FLEX)', '', fmt(cols.map(c => c[0])), fmt(cols.map(c => '-'.repeat(Math.max(c[0].length, c[1])))) ];
+    const lines = [`Vital Sign Summary: ${p.name} (last ${S.vdDays} days, ${mdy(TODAY_I - S.vdDays + 1)} - ${mdy(TODAY_I)})`, 'All times are EST. Source: Omnivisor Novice (Commander FLEX)', '', fmt(cols.map(c => c[0])), fmt(cols.map(c => '-'.repeat(Math.max(c[0].length, c[1])))) ];
     days.forEach(i => lines.push(fmt(cols.map(c => c[2](i)))));
     const avg = k => { const v = days.map(i => p.tx[i][k]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
     const a = [`Averages`, '', avg('wt') != null ? avg('wt').toFixed(1) : ''];
@@ -881,7 +881,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       <h2 style="margin-top:16px;font-size:14px">Symptom Detail (alert responses)</h2>
       ${alertDays.filter(i => evalTx(p, i).alertResp.length).map(i => `<div style="margin:6px 0;font-size:11px"><b>${mdy(i)}</b><ul style="margin:2px 0 0 18px;padding:0">${evalTx(p, i).alertResp.map(q => `<li>${esc(q.q)} <b>${esc(q.resp)}</b></li>`).join('')}</ul></div>`).join('') || '<div style="font-size:11px">No alert responses in this period.</div>'}
       <div class="sim" style="margin-top:14px;font-size:10px">Simulated report &ndash; synthetic data.</div></div>`;
-    report(`/OmnivisorPro/Reports/ExceptionReport.aspx?pid=${p.internal}`, 'Omnivisor Pro - Standard Exception Report');
+    report(`/OmnivisorNovice/Reports/ExceptionReport.aspx?pid=${p.internal}`, 'Omnivisor Novice - Standard Exception Report');
   }
 
   // ===================================================================
@@ -934,7 +934,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     daily: () => go({ view: 'daily', pid: null, editing: false }),
     addRecord: () => msgBox('Records are created automatically through VistA integration. Manual record creation is not available in this simulation.'),
     na: a => msgBox(a.dataset.msg || 'This feature is not available in this simulation.'),
-    logout: () => { $('app').hidden = true; $('login').hidden = false; $('lgMsg').textContent = 'You have been logged out.'; $('lgPass').value = ''; report('/OmnivisorPro/Login.aspx', 'Omnivisor Pro'); },
+    logout: () => { $('app').hidden = true; $('login').hidden = false; $('lgMsg').textContent = 'You have been logged out.'; $('lgPass').value = ''; report('/OmnivisorNovice/Login.aspx', 'Omnivisor Novice'); },
     queue: a => go({ q: a.dataset.q }),
     filter: a => go({ filter: a.dataset.f }),
     day: a => go({ day: +a.dataset.day }),
@@ -1038,7 +1038,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     hist.length = 0; S = { ...S, view: 'daily', q: 'panel', filter: 'all', day: TODAY_I, pid: null };
     render();
   });
-  report('/OmnivisorPro/Login.aspx', 'Omnivisor Pro');
+  report('/OmnivisorNovice/Login.aspx', 'Omnivisor Novice');
   setTimeout(() => $('lgPass').focus(), 50);
 })();
 </script>
