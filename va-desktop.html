@@ -471,7 +471,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       b.classList.toggle('active', !w.classList.contains('hidden') && w.classList.contains('active'));
     });
   }
-  Object.entries(wins).forEach(([name, w]) => {
+  function wireWin(name, w) {
     w.addEventListener('mousedown', () => { if (!w.classList.contains('active')) focusWin(name); });
     w.querySelector('[data-min]').onclick = e => { e.stopPropagation(); minimize(name); };
     w.querySelector('[data-max]').onclick = e => { e.stopPropagation(); w.classList.toggle('max'); };
@@ -510,14 +510,21 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       const up = () => { $('shield').style.display = 'none'; $('shield').style.cursor = ''; removeEventListener('mousemove', mv); removeEventListener('mouseup', up); };
       addEventListener('mousemove', mv); addEventListener('mouseup', up);
     }));
-  });
-  // Taskbar buttons: restore / focus / minimize, like Windows
-  Object.keys(wins).forEach(name => $('tb-' + name).onclick = () => {
-    const w = wins[name];
-    if (w.classList.contains('hidden')) showWin(name);
-    else if (w.classList.contains('active')) minimize(name);
-    else focusWin(name);
-  });
+    // Taskbar button: restore / focus / minimize, like Windows
+    $('tb-' + name).onclick = () => {
+      if (w.classList.contains('hidden')) showWin(name);
+      else if (w.classList.contains('active')) minimize(name);
+      else focusWin(name);
+    };
+  }
+  Object.entries(wins).forEach(([name, w]) => wireWin(name, w));
+  // Hook for optional extra windows kept in a local, untracked local-apps.js
+  const unlockHooks = [];
+  window.VADesk = {
+    addWindow(name, w) { wins[name] = w; wireWin(name, w); updateTaskbar(); },
+    showWin, focusWin, minimize,
+    onUnlock(cb) { let ok = false; try { ok = sessionStorage.getItem('ccUnlocked') === '1'; } catch { } if (ok) cb(); else unlockHooks.push(cb); }
+  };
   $('tbStart').onclick = e => { e.stopPropagation(); $('startMenu').classList.toggle('open'); };
   document.addEventListener('click', e => { if (!e.target.closest('#startMenu')) $('startMenu').classList.remove('open'); });
   document.querySelectorAll('[data-open]').forEach(el => {
@@ -1099,7 +1106,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   function unlock() {
     sess.setItem('ccUnlocked', '1');
     lock.classList.add('gone'); lock.classList.remove('signin'); pin.value = ''; fails = 0;
-    if (!unlockedOnce) { unlockedOnce = true; navigate('worklist.html'); }
+    if (!unlockedOnce) { unlockedOnce = true; navigate('worklist.html'); unlockHooks.splice(0).forEach(cb => cb()); }
   }
   function relock() {
     sess.removeItem('ccUnlocked');
@@ -1111,5 +1118,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   if (sess.getItem('ccUnlocked') === '1') unlock();
 })();
 </script>
+<!-- Optional local-only apps (not in the repository). Missing file is ignored. -->
+<script src="local-apps.js" onerror="this.remove()"></script>
 </body>
 </html>
