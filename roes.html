@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+// Opens only after the VA desktop has been unlocked with the PIN in this browser tab
+(function () { var ok = false; try { ok = sessionStorage.getItem('ccUnlocked') === '1'; } catch (e) { }
+  if (!ok) { document.documentElement.style.display = 'none'; if (window.top === window) location.replace('va-desktop.html'); } })();
+</script>
+<title>ROES 3.0</title>
+<!--
+  Simulation of the VA Remote Order Entry System (ROES) 3.0, the web application
+  used to order products and services from the VA Denver Acquisition & Logistics
+  Center (DALC). Screens follow the public ROES 3.0*4 User Manual (VA Software
+  Document Library). Not connected to the DALC; all patients, items, prices and
+  order numbers are synthetic.
+-->
+<style>
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body { background: #fde3e3; font: 12px "Times New Roman", Times, serif; color: #000; }
+  a { color: #0000ee; cursor: pointer; }
+  a:hover { color: #c00; }
+  input, select, textarea, button { font: 11px Tahoma, "MS Sans Serif", Arial, sans-serif; }
+  input[type=text], input[type=password], select, textarea { border: 2px inset #d4d0c8; background: #fff; padding: 1px 3px; height: 21px; }
+  select[disabled], input[readonly] { color: #777; background: #f3f3f3; }
+  button, .btn { background: #d4d0c8; border: 2px outset #f4f2ee; padding: 2px 10px; cursor: pointer; color: #000; min-height: 21px; }
+  button:active { border-style: inset; }
+  button[disabled] { color: #8b8b8b; cursor: default; }
+  button.blue { background: #8db9da; border-color: #c4dcee #46769c #46769c #c4dcee; }
+  .wrap { display: flex; min-height: 100%; }
+  /* Left action column (CPRS / patient pages) */
+  .side { width: 124px; flex: none; background: #1d5ea0; padding: 10px 8px; border-right: 3px solid #0d3d6e; }
+  .side .sel { color: #ffd84a; font-size: 12px; padding-bottom: 6px; border-bottom: 1px solid #a8c4e2; margin-bottom: 14px; }
+  .side a { display: block; color: #fff; font-weight: bold; font-size: 12px; margin: 0 0 14px; text-decoration: underline; }
+  .side a:hover { color: #ffd84a; }
+  .side a.small { font-size: 10px; }
+  .side hr { border: 0; border-top: 1px solid #a8c4e2; margin: 6px 0 18px; }
+  .side a.dis { color: #9fb6cf; cursor: default; }
+  .main { flex: 1; padding: 10px 16px 24px; min-width: 760px; }
+  h1 { font: bold 14px "Times New Roman", serif; text-align: center; margin: 2px 0 10px; }
+  h1 small { display: block; font-size: 14px; }
+  .ptline { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0 8px; border-bottom: 2px solid #c9b3b3; margin-bottom: 10px; }
+  .ptline span { flex: 1; } .ptline span:nth-child(2) { text-align: center; } .ptline span:last-child { text-align: right; }
+  table.grid { border-collapse: collapse; width: 100%; background: #d4f1f3; }
+  table.grid th { background: #c6eaee; font: bold 11px "Times New Roman", serif; padding: 3px 4px; border: 1px solid #fff; }
+  table.grid td { font: 10.5px Tahoma, Arial, sans-serif; padding: 2px 5px; border-left: 1px solid #fff; border-right: 1px solid #fff; vertical-align: top; text-transform: uppercase; }
+  table.grid td.c, table.grid th.c { text-align: center; } table.grid td.r { text-align: right; }
+  table.grid tr.red td { color: #c00; }
+  table.grid tr.hl td { background: #ffeb9c; }
+  .tblbox { border: 1px solid #9fc9cf; padding: 2px; background: #e3f6f7; margin-bottom: 12px; }
+  .tblbox .cap { text-align: center; font-weight: bold; padding: 3px; background: #fff; border-bottom: 1px solid #9fc9cf; }
+  .cmds { display: flex; gap: 14px; margin: 12px 0; align-items: center; }
+  .cmds.center { justify-content: center; }
+  .cmds .sp { flex: 1; }
+  .form { border-top: 2px solid #c9b3b3; border-bottom: 2px solid #c9b3b3; padding: 10px 0; }
+  .fgrid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 24px; }
+  .frow { display: flex; align-items: center; margin: 7px 0; gap: 8px; }
+  .frow > label { width: 150px; text-align: right; font-weight: bold; flex: none; }
+  .frow.top { align-items: flex-start; }
+  .note { font-size: 11px; }
+  .gray { background: #dcdcdc; padding: 8px 12px; margin: 8px 0 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 30px; }
+  .gray div { display: flex; gap: 6px; } .gray b { width: 120px; text-align: right; flex: none; }
+  .gray .muted { color: #8a8a8a; }
+  .req { color: #c00; }
+  .warnbar { background: #fff7c2; border: 1px solid #d6c35a; padding: 5px 8px; margin: 6px 0 10px; font-size: 11px; }
+  .sim { font: 10px Tahoma, Arial, sans-serif; color: #7a5656; margin-top: 24px; }
+  /* Desk top entry page */
+  .home { padding: 18px 26px; position: relative; min-height: 100%; overflow: hidden; }
+  .home .welcome { text-align: center; font: italic 20px "Monotype Corsiva", "Brush Script MT", "Times New Roman", serif; color: #333; }
+  .home .big { text-align: center; font: bold italic 27px Arial, sans-serif; color: #2f2fd0; margin: 34px 0 40px; }
+  .home .links a { display: block; font-size: 17px; margin: 2px 0; position: relative; z-index: 1; width: max-content; }
+  .home .va { position: absolute; left: 50%; top: 150px; transform: translateX(-38%); font: bold 260px/1 Arial, sans-serif; color: #c9c3c7; letter-spacing: -20px; opacity: .65; pointer-events: none; user-select: none; }
+  /* Who are you */
+  .who h2 { font: bold 17px "Times New Roman", serif; margin: 0 0 4px; }
+  .who .bar { border-bottom: 2px solid #6aa0a6; margin-bottom: 14px; }
+  .who h3 { font: bold italic 19px "Times New Roman", serif; margin: 0 0 10px; }
+  .who .frow > label { width: 110px; }
+  /* Message box */
+  .mbBack { position: fixed; inset: 0; background: rgba(0,0,0,.08); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .mb { background: #f0f0f0; border: 1px solid #6b6b6b; box-shadow: 2px 3px 12px rgba(0,0,0,.35); min-width: 330px; max-width: 460px; font: 12px "Segoe UI", Tahoma, sans-serif; }
+  .mb .t { background: #fff; padding: 7px 10px; display: flex; justify-content: space-between; }
+  .mb .b { background: #fff; padding: 14px 18px 20px; display: flex; gap: 12px; align-items: flex-start; white-space: pre-line; }
+  .mb .ic { width: 28px; height: 28px; border-radius: 50%; background: #f6c400; color: #000; font: bold 18px Arial; display: flex; align-items: center; justify-content: center; flex: none; }
+  .mb .ic.i { background: #2a6ad2; color: #fff; font-family: Georgia, serif; }
+  .mb .f { padding: 10px 12px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #dfdfdf; }
+  .mb .f button { min-width: 74px; font: 12px "Segoe UI", Tahoma, sans-serif; border: 1px solid #adadad; background: #e1e1e1; }
+  .mb .f button:first-child { border-color: #0078d7; }
+  @media print { .side, .cmds, .noprint { display: none !important; } body { background: #fff; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="mbHost"></div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const pad = n => String(n).padStart(2, '0');
+  const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const TODAY = new Date(2026, 5, 29);
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fromIso = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const short = s => { const d = fromIso(s); return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${String(d.getFullYear()).slice(2)}`; };
+  const long = s => { const d = fromIso(s); return `${MON[d.getMonth()]} ${pad(d.getDate())}, ${d.getFullYear()}`; };
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const money = n => n.toFixed(2);
+  const getJson = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
+  const setJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } };
+
+  // Dates typed as T, T+n, T-n, MM/DD/YY, MM/DD/YYYY or "JUN 29, 2026"
+  function parseDate(v) {
+    v = String(v || '').trim().toUpperCase(); if (!v) return null;
+    let m = v.match(/^T\s*([+-])\s*(\d+)$/); if (v === 'T' || v === 'TODAY') return new Date(TODAY);
+    if (m) return addDays(TODAY, (m[1] === '-' ? -1 : 1) * +m[2]);
+    m = v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2}|\d{4})$/);
+    if (m) { let y = +m[3]; if (y < 100) y += 2000; const d = new Date(y, +m[1] - 1, +m[2]); return d.getMonth() === +m[1] - 1 ? d : null; }
+    m = v.match(/^([A-Z]{3})[A-Z]*\s+(\d{1,2}),?\s+(\d{4})$/);
+    if (m && MON.includes(m[1])) return new Date(+m[3], MON.indexOf(m[1]), +m[2]);
+    return null;
+  }
+
+  // ===================================================================
+  //  Reference data (synthetic)
+  // ===================================================================
+  const STATION = '999 - VA DEMO HCS';
+  const STATION_ADDR = ['VA DEMO HEALTH CARE SYSTEM (999)', 'HOME TELEHEALTH PROGRAM (118)', '100 VETERANS PARKWAY', 'ANYTOWN, CO 80000-0100'];
+  const USER = { name: 'BORNE,BEN', ini: 'BB' };
+  const USERS = ['BORNE,BEN', 'LEAD,COORDINATOR', 'PROVIDER,PRIMARY CARE', 'AUDIOLOGIST,DEMO'];
+  const SERVICES = ['HOME TELEHEALTH', 'PROSTHETIC AND SENSORY AIDS', 'AUDIOLOGY AND SPEECH PATHOLOGY', 'PRIMARY CARE'];
+  const PTS = [
+    { id: 'robert', last: 'HALE', first: 'ROBERT', ssn: '000-00-1001', dob: '1958-03-14', elig: 'SC', pg: '1', addr: ['1418 OAK HOLLOW DR', '', 'SPRINGFIELD', 'IL', '62704'], phone: '555-0110', prog: 'HTN' },
+    { id: 'david', last: 'MORENO', first: 'DAVID', ssn: '000-00-1002', dob: '1961-08-02', elig: 'NSC', pg: '7', addr: ['22 CEDAR CT', 'APT 4', 'SPRINGFIELD', 'IL', '62711'], phone: '555-0111', prog: 'HTN' },
+    { id: 'kyle', last: 'BENNETT', first: 'KYLE', ssn: '000-00-1003', dob: '1966-11-23', elig: 'PG8', pg: '8', addr: ['905 RIVER RD', '', 'CHATHAM', 'IL', '62629'], phone: '555-0112', prog: 'HTN' },
+    { id: 'brad', last: 'FOSTER', first: 'BRAD', ssn: '000-00-1004', dob: '1954-05-09', elig: 'PG4', pg: '4', addr: ['3310 PRAIRIE VIEW LN', '', 'ROCHESTER', 'IL', '62563'], phone: '555-0113', prog: 'HF' },
+    { id: 'miles', last: 'CARTER', first: 'MILES', ssn: '000-00-1005', dob: '1952-01-30', elig: 'SC', pg: '1', addr: ['71 LINCOLN AVE', '', 'SPRINGFIELD', 'IL', '62702'], phone: '555-0114', prog: 'HF' },
+    { id: 'phil', last: 'DAWSON', first: 'PHIL', ssn: '000-00-1006', dob: '1957-09-17', elig: 'COM', pg: '2', addr: ['4402 SUNSET BLVD', '', 'SHERMAN', 'IL', '62684'], phone: '555-0115', prog: 'HF' },
+    { id: 'bob', last: 'TURNER', first: 'BOB', ssn: '000-00-1007', dob: '1963-06-06', elig: 'NCA', pg: '5', addr: ['18 BIRCH ST', '', 'PETERSBURG', 'IL', '62675'], phone: '555-0116', prog: 'WM' },
+    { id: 'michelle', last: 'REYES', first: 'MICHELLE', ssn: '000-00-1008', dob: '1970-12-01', elig: 'OIF', pg: '6', addr: ['650 MEADOW DR', 'UNIT B', 'SPRINGFIELD', 'IL', '62707'], phone: '555-0117', prog: 'WM' },
+    { id: 'sarah', last: 'COLLINS', first: 'SARAH', ssn: '000-00-1009', dob: '1968-04-19', elig: 'SCV', pg: '6', addr: ['2201 HILLCREST AVE', '', 'AUBURN', 'IL', '62615'], phone: '555-0118', prog: 'WM' }
+  ];
+  const byId = Object.fromEntries(PTS.map(p => [p.id, p]));
+  const ptName = p => `${p.last},${p.first}`;
+
+  // Commodity catalog: group -> items (item code, make, description, HCPCS, unit price, order multiple, max qty, DALC qty on hand)
+  const CAT = {
+    'Batteries': [
+      ['ZA675', 'GENERIC', 'ZINC AIR BATTERY SIZE 675 (6/CARD)', 'V5266', 0.80, 6, 120, 4072],
+      ['ZA13', 'GENERIC', 'ZINC AIR BATTERY SIZE 13 (6/CARD)', 'V5266', 0.80, 6, 120, 3866],
+      ['ZA312', 'GENERIC', 'ZINC AIR BATTERY SIZE 312 (6/CARD)', 'V5266', 0.80, 6, 120, 5120],
+      ['ZA10', 'GENERIC', 'ZINC AIR BATTERY SIZE 10 (6/CARD)', 'V5266', 0.80, 6, 120, 2210],
+      ['ALKAA', 'GENERIC', 'ALKALINE BATTERY AA (4/PK)', 'A4233', 0.45, 4, 48, 9310],
+      ['ALKAAA', 'GENERIC', 'ALKALINE BATTERY AAA (4/PK)', 'A4233', 0.45, 4, 48, 8120],
+      ['LI2032', 'GENERIC', 'LITHIUM COIN CELL CR2032', 'A4233', 1.10, 2, 12, 1406]
+    ],
+    'Home Telehealth': [
+      ['HT-HUB-C', 'CARECONSOLE', 'HOME TELEHEALTH HUB, CELLULAR', 'E1399', 245.00, 1, 1, 312],
+      ['HT-TAB', 'CARECONSOLE', 'HOME TELEHEALTH TABLET WITH STAND', 'E1399', 289.00, 1, 1, 140],
+      ['HT-BPM-A', 'CARECONSOLE', 'BLOOD PRESSURE MONITOR, ADULT CUFF', 'A4670', 62.50, 1, 1, 520],
+      ['HT-BPM-L', 'CARECONSOLE', 'BLOOD PRESSURE MONITOR, LARGE CUFF', 'A4670', 66.00, 1, 1, 288],
+      ['HT-CUFF-A', 'CARECONSOLE', 'REPLACEMENT BP CUFF, ADULT 22-32CM', 'A4663', 14.25, 1, 2, 610],
+      ['HT-CUFF-L', 'CARECONSOLE', 'REPLACEMENT BP CUFF, LARGE 32-42CM', 'A4663', 15.75, 1, 2, 0],
+      ['HT-SCALE', 'CARECONSOLE', 'WEIGHT SCALE, WIRELESS (400 LB)', 'E1399', 48.00, 1, 1, 405],
+      ['HT-SCALE-XL', 'CARECONSOLE', 'WEIGHT SCALE, BARIATRIC (600 LB)', 'E1399', 129.00, 1, 1, 37],
+      ['HT-POX', 'CARECONSOLE', 'PULSE OXIMETER, FINGERTIP, WIRELESS', 'E0445', 39.95, 1, 1, 466],
+      ['HT-GLU', 'CARECONSOLE', 'GLUCOSE METER, WIRELESS', 'E0607', 24.00, 1, 1, 230],
+      ['HT-PFM', 'CARECONSOLE', 'PEAK FLOW METER, ELECTRONIC', 'A4614', 31.50, 1, 1, 96],
+      ['HT-PWR', 'CARECONSOLE', 'AC POWER ADAPTER FOR HUB', 'E1399', 9.00, 1, 2, 744],
+      ['HT-RET', 'CARECONSOLE', 'PREPAID RETURN SHIPPING KIT', 'E1399', 0.00, 1, 1, 1500]
+    ],
+    'Hearing Aid Accessories': [
+      ['DRYKIT', 'GENERIC', 'HEARING AID DRYING KIT', 'V5267', 6.40, 1, 2, 820],
+      ['STETH', 'GENERIC', 'HEARING AID STETHOSET LISTENER', 'V5267', 11.90, 1, 1, 120],
+      ['TUBE-13', 'GENERIC', 'BTE TUBING SIZE 13 (10/PK)', 'V5267', 3.20, 1, 4, 950],
+      ['CLEAN', 'GENERIC', 'CLEANING TOOL / WAX LOOP', 'V5267', 1.15, 1, 4, 1300]
+    ],
+    'Assistive Listening Devices': [
+      ['TVL-2', 'GENERIC', 'TV LISTENING SYSTEM, INFRARED', 'V5274', 74.00, 1, 1, 64],
+      ['AMPH-40', 'GENERIC', 'AMPLIFIED TELEPHONE, 40 DB', 'V5274', 58.00, 1, 1, 81],
+      ['CLK-VIB', 'GENERIC', 'ALARM CLOCK WITH BED SHAKER', 'V5274', 32.00, 1, 1, 140],
+      ['PKT-TLK', 'GENERIC', 'PERSONAL AMPLIFIER (POCKET TALKER)', 'V5274', 89.00, 1, 1, 52]
+    ],
+    'Prosthetic Socks': []
+  };
+  // Long sock list, as the manual notes, is found with the Search button
+  ['W', 'C'].forEach(mat => [1, 3, 5].forEach(ply => [1, 2, 3, 4, 5, 6, 7, 8].forEach(sz => ['S', 'M', 'L'].forEach(len =>
+    CAT['Prosthetic Socks'].push([`${mat}-${ply}-${sz}${len}`, 'GENERIC', `${mat === 'W' ? 'WOOL' : 'COTTON'} PROSTHETIC SOCK ${ply}-PLY SIZE ${sz} ${{ S: 'SHORT', M: 'MEDIUM', L: 'LONG' }[len]}`, 'L8420', mat === 'W' ? 3.85 : 2.60, 1, 12, 40 + ((sz * 37 + ply * 11) % 300)])))));
+  const ITEMS = {}; Object.entries(CAT).forEach(([g, l]) => l.forEach(r => { ITEMS[r[0]] = { group: g, item: r[0], make: r[1], desc: r[2], hcpcs: r[3], price: r[4], mult: r[5], max: r[6], qoh: r[7] }; }));
+
+  // Device registration: make -> models (with group and battery)
+  const DEVMAKES = {
+    'CARECONSOLE': [['HT HUB CELLULAR', 'Home Telehealth', ''], ['HT TABLET', 'Home Telehealth', ''], ['HT BP MONITOR', 'Home Telehealth', 'ALKAA'], ['HT SCALE', 'Home Telehealth', 'ALKAAA'], ['HT PULSE OX', 'Home Telehealth', 'ALKAAA'], ['HT GLUCOSE METER', 'Home Telehealth', 'LI2032']],
+    'ACME HEARING': [['ITE 300P', 'Custom Hearing Aids', 'ZA312'], ['ITC 200', 'Custom Hearing Aids', 'ZA312'], ['CIC 100', 'Custom Hearing Aids', 'ZA10'], ['BTE 500 POWER', 'BTE Hearing Aids', 'ZA675'], ['RIC 400', 'BTE Hearing Aids', 'ZA13']],
+    'GENERIC': [['TV LISTENER TL-2', 'Assistive Listening Devices', 'ALKAA'], ['AMPLIFIED PHONE AP-40', 'Assistive Listening Devices', ''], ['POCKET TALKER', 'Assistive Listening Devices', 'ALKAAA']]
+  };
+  const BATTERIES = ['', 'ZA675', 'ZA13', 'ZA312', 'ZA10', 'ALKAA', 'ALKAAA', 'LI2032'];
+  const DISAB_DESC = { 'HT': 'HOME TELEHEALTH', 'DEAF/B': 'HEARING LOSS - SERVICE CONNECTED', 'DEAF/U': 'HEARING LOSS - NONSERVICE CONNECTED', 'A0/DIS': 'AMPUTATION / LIMB LOSS' };
+
+  // ===================================================================
+  //  Stored state: orders, devices on record, patient record updates
+  // ===================================================================
+  const SEED_V = 1;
+  let orders, aids, ptRec, seq;
+  function seed() {
+    orders = []; aids = []; ptRec = {}; seq = 2186800;
+    const reg = (pt, date, make, model, serial, ear = '', auth = true) => aids.push({ pt, issue: date, make, model, serial, ear, station: STATION, auth });
+    const add = o => { orders.push(Object.assign({ by: 'BB', enteredBy: USER.name, requestedBy: USER.name, service: 'HOME TELEHEALTH', disab: 'HT', deliv: 'ROUTINE', proc: true, trans: 'INITIAL', approvedBy: USER.name }, o)); };
+    const hub = { HTN: ['HT-HUB-C', 'HT-BPM-A'], HF: ['HT-HUB-C', 'HT-BPM-A', 'HT-SCALE', 'HT-POX'], WM: ['HT-HUB-C', 'HT-SCALE'] };
+    const devModel = { 'HT-HUB-C': 'HT HUB CELLULAR', 'HT-BPM-A': 'HT BP MONITOR', 'HT-SCALE': 'HT SCALE', 'HT-POX': 'HT PULSE OX' };
+    PTS.forEach((p, i) => {
+      ptRec[p.id] = { addr: p.addr.slice(), disab: [{ code: 'HT', station: STATION, remarks: 'HOME TELEHEALTH ENROLLMENT 01/02/26' }] };
+      hub[p.prog].forEach((it, j) => {
+        const serial = `${it.split('-')[1].slice(0, 2)}${(7340 + i * 13 + j).toString()}${'ABCDEFGHJK'[i]}`;
+        add({ no: `25-${seq++}`, pt: p.id, date: '2025-12-22', type: 'HOME TELEHEALTH', status: 'COMPLETE', ship: '2025-12-23', lines: [line(it, 1, serial)] });
+        reg(p.id, '2026-01-02', 'CARECONSOLE', devModel[it], serial);
+      });
+      if (p.prog !== 'WM') add({ no: `26-${seq++}`, pt: p.id, date: '2026-03-' + pad(9 + i), type: 'BATTERIES', status: 'COMPLETE', ship: '2026-03-' + pad(10 + i), lines: [line('ALKAA', 8)] });
+    });
+    // A few open items so each list has something to show
+    add({ no: `26-${seq++}`, pt: 'robert', date: '2026-06-26', type: 'HOME TELEHEALTH', status: 'PEND.SHIPMT', trans: 'REPLACE', lines: [line('HT-CUFF-A', 1)] });
+    add({ no: `26-${seq++}`, pt: 'brad', date: '2026-06-24', type: 'HOME TELEHEALTH', status: 'BACKORDERED', trans: 'REPLACE', lines: [line('HT-CUFF-L', 1)] });
+    add({ no: `26-${seq++}`, pt: 'phil', date: '2026-06-27', type: 'SPECIAL REQUEST', status: 'AWAITING PROC', proc: false, trans: 'INITIAL',
+      lines: [{ group: 'Home Telehealth', item: 'SPECIAL', make: 'ANY', desc: 'BP CUFF, THIGH SIZE 42-50CM', hcpcs: '', qty: 1, price: 0 }] });
+    add({ no: `26-${seq++}`, pt: 'bob', date: '2026-05-14', type: 'HOME TELEHEALTH', status: 'CANCELED', trans: 'SPARE', lines: [line('HT-PWR', 1)] });
+    // Miles also has a service connected hearing loss and a custom hearing aid order waiting on certification
+    ptRec.miles.disab.push({ code: 'DEAF/B', station: STATION, remarks: 'AUDIOLOGY C&P 2019' });
+    reg('miles', '2019-08-14', 'ACME HEARING', 'BTE 500 POWER', 'AH553120', 'L', false);
+    reg('miles', '2019-08-14', 'ACME HEARING', 'BTE 500 POWER', 'AH553121', 'R', false);
+    add({ no: `26-${seq++}`, pt: 'miles', date: '2026-01-21', type: 'BATTERIES', status: 'COMPLETE', ship: '2026-01-22', disab: 'DEAF/B', service: 'AUDIOLOGY AND SPEECH PATHOLOGY', lines: [line('ZA312', 24)] });
+    add({ no: '5G6110-0007', pt: 'miles', date: '2026-06-08', type: 'CUSTOM HEARING AIDS', status: 'CERT. PENDING', disab: 'DEAF/B', service: 'AUDIOLOGY AND SPEECH PATHOLOGY', by: 'AD', requestedBy: 'AUDIOLOGIST,DEMO', enteredBy: 'AUDIOLOGIST,DEMO', approvedBy: 'AUDIOLOGIST,DEMO', ship: '2026-06-15',
+      lines: [{ group: 'Custom Hearing Aids', item: 'ITE 300P', make: 'ACME HEARING', desc: 'ITE 300P OPT 2', hcpcs: 'V5050', qty: 1, price: 412.00, ear: 'L', serial: 'AH7731042', battery: 'ZA312', status: 'CERT. PENDING' },
+              { group: 'Custom Hearing Aids', item: 'ITE 300P', make: 'ACME HEARING', desc: 'ITE 300P OPT 2', hcpcs: 'V5050', qty: 1, price: 412.00, ear: 'R', serial: 'AH7731043', battery: 'ZA312', status: 'CERT. PENDING' }] });
+    // Station stock
+    add({ no: `26-${seq++}`, pt: null, date: '2026-05-30', type: 'STATION STOCK', status: 'COMPLETE', ship: '2026-06-02', disab: '', lines: [line('HT-CUFF-A', 2)] });
+    add({ no: `26-${seq++}`, pt: null, date: '2026-06-18', type: 'STATION STOCK', status: 'PEND.SHIPMT', disab: '', lines: [line('ALKAA', 48)] });
+    save(); localStorage.setItem('roesSeed', String(SEED_V));
+  }
+  function line(item, qty, serial) { const it = ITEMS[item]; return { group: it.group, item, make: it.make, desc: it.desc, hcpcs: it.hcpcs, qty, price: it.price, serial: serial || '' }; }
+  function load() {
+    if (localStorage.getItem('roesSeed') !== String(SEED_V)) return seed();
+    orders = getJson('roesOrders', []); aids = getJson('roesAids', []); ptRec = getJson('roesPtRec', {}); seq = getJson('roesSeq', 2186900);
+  }
+  function save() { setJson('roesOrders', orders); setJson('roesAids', aids); setJson('roesPtRec', ptRec); setJson('roesSeq', seq); }
+  load();
+
+  // ===================================================================
+  //  Message box ("Message from webpage")
+  // ===================================================================
+  function msg(text, { confirm = false, icon = 'warn' } = {}) {
+    return new Promise(res => {
+      const host = $('mbHost');
+      host.innerHTML = `<div class="mbBack"><div class="mb" role="dialog"><div class="t"><span>Message from webpage</span><span style="cursor:pointer" data-r="0">&#10005;</span></div>
+        <div class="b"><div class="ic ${icon === 'info' ? 'i' : ''}">${icon === 'info' ? 'i' : '!'}</div><div>${esc(text)}</div></div>
+        <div class="f"><button data-r="1">OK</button>${confirm ? '<button data-r="0">Cancel</button>' : ''}</div></div></div>`;
+      const done = v => { host.innerHTML = ''; document.removeEventListener('keydown', key, true); res(v); };
+      const key = e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); done(false); } };
+      host.querySelectorAll('[data-r]').forEach(b => b.onclick = () => done(b.dataset.r === '1'));
+      document.addEventListener('keydown', key, true);
+      host.querySelector('.f button').focus();
+    });
+  }
+
+  // ===================================================================
+  //  Session, navigation and reporting to the desktop window
+  // ===================================================================
+  const qs = new URLSearchParams(location.search);
+  const S = { mode: qs.get('pt') ? 'cprs' : 'desktop', pt: byId[qs.get('pt')] || null, page: '', p: {}, cart: [], cartKind: 'pt', form: null, submitted: false, aidsView: 'auth' };
+  const authed = () => { try { return sessionStorage.getItem('roesAuth') === '1'; } catch { return false; } };
+  function report(path, title) { document.title = title; try { parent.postMessage({ type: 'roes-nav', path, title }, '*'); } catch { } }
+  function go(page, p = {}) { S.page = page; S.p = p; render(); window.scrollTo(0, 0); }
+  window.roesBack = () => msg('Please use the buttons and links provided on the ROES 3.0 pages to navigate. The browser Back and Forward commands bypass functions that keep your order intact.', { icon: 'info' });
+
+  // ===================================================================
+  //  Page frame pieces
+  // ===================================================================
+  const opt = (list, sel) => list.map(v => Array.isArray(v) ? `<option value="${esc(v[0])}" ${v[0] === sel ? 'selected' : ''}>${esc(v[1])}</option>` : `<option ${v === sel ? 'selected' : ''}>${esc(v)}</option>`).join('');
+  const patientLine = (right) => S.pt ? `<div class="ptline"><span>Patient: ${esc(ptName(S.pt))}</span><span>SSN: ${S.pt.ssn}</span><span>${right ?? 'DOB: ' + long(S.pt.dob)}</span></div>` : '';
+  function sidebar() {
+    const a = (act, label, cls = '') => `<a data-act="${act}" class="${cls}">${label}</a>`;
+    return `<div class="side"><div class="sel">Select an<br>Action:</div>
+      ${a('na:Custom Hearing Aids', 'Custom<br>Hearing Aids')}${a('na:FMs/Remotes', '-FMs/Remotes', 'small')}
+      ${a('commodity', 'Other<br>Commodities')}${a('na:Service Request', 'Service<br>Request')}${a('devreg', 'Device<br>Registration')}
+      ${a('na:CI Registry', 'CI Registry')}${a('record', 'Record<br>Updates')}<hr>
+      ${a('na:Station Parameters', 'Station<br>Parameters')}${a('pending', 'Pending<br>Actions')}${a('aids', 'Authorized<br>Aids')}
+      ${S.mode === 'desktop' ? a('lookup', 'Patient<br>Lookup') + a('home', 'Home') : ''}${a('exit', 'Exit Roes')}</div>`;
+  }
+  const withSide = body => `<div class="wrap">${sidebar()}<div class="main">${body}</div></div>`;
+  const plain = body => `<div class="main" style="max-width:1100px">${body}</div>`;
+
+  // ===================================================================
+  //  Pages
+  // ===================================================================
+  const PAGES = {};
+
+  // ----- Who Are You (DALC Access / Verify codes) -----
+  PAGES.login = () => {
+    report('/roes3/Login.asp', 'ROES 3.0 - Who Are You?');
+    return plain(`<div class="who"><h2>VA Denver Acquisitions &amp; Logistics Center Remote Order/Entry System v3.0</h2><div class="bar"></div>
+      <h3>Who Are You?</h3><div style="font-weight:bold;margin-bottom:10px">Enter your <small>DALC</small> access and verify codes.</div>
+      <div class="frow"><label>Access Code:</label><input type="password" id="lgA" autocomplete="off" style="width:120px"></div>
+      <div class="frow"><label>Verify Code:</label><input type="password" id="lgV" autocomplete="off" style="width:120px"></div>
+      <div class="frow"><label>E-mail (optional):</label><input type="text" id="lgE" style="width:180px" value="${esc(getJson('roesUser', {}).email || '')}"><span class="note">(xxx@domain format, 7-50 characters in length, no commas or spaces)</span></div>
+      <div class="frow"><label>Phone Number:</label><input type="text" id="lgP" style="width:120px" value="${esc(getJson('roesUser', {}).phone || '')}"><span class="note">(user's 10 digit phone number plus extension)</span></div>
+      <div class="cmds"><button class="blue" data-act="exit">&lt;&lt; Exit</button><button class="blue" data-act="loginSubmit">Submit</button></div>
+      <div class="warnbar">Simulation: these are not real DALC codes. Any non-blank access and verify code is accepted &ndash; do not enter real codes.</div></div>`);
+  };
+  async function loginSubmit() {
+    const a = $('lgA').value.trim(), v = $('lgV').value.trim(), e = $('lgE').value.trim();
+    if (!a || !v) return msg('Please enter both your Access Code and Verify Code.');
+    if (e && (!/^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(e) || e.length < 7 || e.length > 50)) return msg('E-mail address must be in xxx@domain format, 7-50 characters in length, with no commas or spaces.');
+    setJson('roesUser', { email: e, phone: $('lgP').value.trim() });
+    try { sessionStorage.setItem('roesAuth', '1'); } catch { }
+    start();
+  }
+
+  // ----- View Order History -----
+  const ptOrders = id => orders.filter(o => o.pt === id).sort((a, b) => b.date.localeCompare(a.date) || b.no.localeCompare(a.no));
+  const PER = 12;
+  function historyTable(list, pg, withPt) {
+    const rows = list.slice(pg * PER, pg * PER + PER).flatMap(o => o.lines.map((l, i) => `<tr>
+      <td class="c">${i === 0 ? `<a data-act="detail" data-no="${esc(o.no)}">${short(o.date)}</a>` : ''}</td><td>${i === 0 ? esc(o.no) : ''}</td>
+      ${withPt ? `<td>${i === 0 ? (o.pt ? esc(ptName(byId[o.pt])) : 'STATION STOCK') : ''}</td>` : ''}
+      <td>${i === 0 ? esc(o.type) : ''}</td><td class="c">${i === 0 ? esc(o.by) : ''}</td><td>${esc(l.status || o.status)}</td>
+      <td class="c">${esc(l.serial || (o.type === 'CUSTOM HEARING AIDS' ? 'PENDING' : 'N/A'))}</td><td class="c">${esc(l.item === 'SPECIAL' ? l.desc : l.item)}</td></tr>`)).join('');
+    return `<table class="grid"><tr><th>Tran Date</th><th>Order<br>Number</th>${withPt ? '<th>Patient</th>' : ''}<th>Order Type</th><th>By</th><th>Status</th><th>Serial #</th><th>Item</th></tr>
+      ${rows || `<tr><td colspan="${withPt ? 8 : 7}" class="c" style="padding:14px">No ${S.p.proc === false ? 'unprocessed' : 'processed'} orders on file.</td></tr>`}</table>`;
+  }
+  PAGES.history = () => {
+    const proc = S.p.proc !== false, pg = S.p.pg || 0;
+    const list = ptOrders(S.pt.id).filter(o => o.proc === proc);
+    report(`/roes3/ViewOrders.asp?type=${proc ? 'P' : 'U'}`, 'ROES 3.0 - View Order History');
+    return withSide(`<h1>View Order History<small>ROES Patient Orders - ${proc ? 'Processed' : 'Unprocessed'}</small></h1>
+      <div style="text-align:center;margin-bottom:8px"><b>Ordering Station:</b> <select style="width:220px"><option>${STATION}</option></select></div>
+      ${patientLine()}${historyTable(list, pg)}
+      <div class="cmds center" style="gap:120px"><button class="blue" data-act="hpage" data-d="-1">&lt;&lt; BACK</button><button class="blue" data-act="hpage" data-d="1">FORWARD&gt;&gt;</button></div>
+      <div class="cmds center" style="gap:60px;margin-top:24px"><button class="blue" style="width:170px" data-act="unproc">Unprocessed Orders</button><button class="blue" style="width:170px" data-act="proc">Processed Orders</button></div>
+      <div class="sim">Simulation &ndash; synthetic patients and orders. Not connected to the DALC.</div>`);
+  };
+
+  // ----- Order detail pages -----
+  PAGES.detail = () => {
+    const o = orders.find(x => x.no === S.p.no); if (!o) return withSide('Order not found.');
+    if (o.type === 'CUSTOM HEARING AIDS') return chaDetail(o);
+    const total = o.lines.reduce((s, l) => s + l.qty * l.price, 0);
+    const title = o.type === 'DEVICE REG' ? 'Device Registration Detail' : o.type === 'STATION STOCK' ? 'Station Stock Order Detail' : (o.type === 'BATTERIES' ? 'Battery' : o.type === 'SPECIAL REQUEST' ? 'Special Request' : 'Commodity') + ' Order Detail';
+    const canCancel = ['PEND.SHIPMT', 'BACKORDERED', 'AWAITING PROC'].includes(o.status);
+    report(`/roes3/OrderDetail.asp?ord=${encodeURIComponent(o.no)}`, 'ROES 3.0 - ' + title);
+    const body = `<h1>${title}</h1>${o.pt ? `<div class="ptline"><span>Patient: ${esc(ptName(byId[o.pt]))}</span><span>SSN: ${byId[o.pt].ssn}</span><span>Entered by: ${esc(o.enteredBy)}</span></div>` : `<div class="ptline"><span>Site: ${STATION}</span><span></span><span>Entered by: ${esc(o.enteredBy)}</span></div>`}
+      <div class="gray"><div><b>Order Date:</b>${long(o.date)}</div><div><b>Disability Code:</b>${esc(o.disab || '')}</div>
+        <div><b>Ordered By:</b>${esc(o.by)}</div><div><b>Deliv. Cat.:</b>${esc(o.deliv)}</div>
+        <div><b>Order Type:</b>${esc(o.type)}</div><div><b>Ship Date:</b>${o.ship ? long(o.ship) : 'Pending'}</div>
+        <div><b>Status:</b>${esc(o.status)}</div><div><b>Type of Trans.:</b>${esc(o.trans || '')}</div>
+        <div><b>Approved by:</b><span class="muted">${esc(o.approvedBy)}</span></div><div><b>Requested by:</b>${esc(o.requestedBy)}</div>
+        <div><b>Approval Date:</b><span class="muted">${long(o.date)}</span></div><div><b>Service:</b>${esc(o.service)}</div>
+        <div><b>Eligibility:</b>${o.pt ? esc(byId[o.pt].elig) : 'STATION'}</div><div><b>Order Number:</b>${esc(o.no)}</div></div>
+      <table class="grid"><tr><th>Item</th><th>Make</th><th>Description</th><th>HCPCS</th><th>Quantity</th><th>Item Cost</th><th>Total Cost</th><th>Status</th></tr>
+        ${o.lines.map(l => `<tr><td>${esc(l.item)}</td><td>${esc(l.make)}</td><td>${esc(l.desc)}${l.serial ? '<br>SN: ' + esc(l.serial) : ''}</td><td class="c">${esc(l.hcpcs)}</td><td class="c">${l.qty}</td><td class="r">${money(l.price)}</td><td class="r">${money(l.qty * l.price)}</td><td class="c">${esc(l.status || o.status)}</td></tr>`).join('')}</table>
+      ${o.remarks ? `<div style="margin-top:6px"><b>Remarks:</b> ${esc(o.remarks)}</div>` : ''}
+      <div style="text-align:right;margin:8px 60px 0 0"><b>Total Price: $ ${money(total)}</b></div>
+      <div class="cmds"><button class="blue" data-act="back">&lt;&lt; Back</button>${canCancel ? `<button data-act="cancelOrder" data-no="${esc(o.no)}">Cancel Order</button>` : ''}</div>`;
+    return o.pt ? withSide(body) : stationWrap(body);
+  };
+  async function cancelOrder(no) {
+    const o = orders.find(x => x.no === no); if (!o) return;
+    if (!await msg(`Cancel order ${o.no}?`, { confirm: true })) return;
+    o.status = 'CANCELED'; o.proc = true; save();
+    await msg('The order has been canceled.', { icon: 'info' }); render();
+  }
+
+  function chaDetail(o) {
+    report(`/roes3/CHADetail.asp?po=${encodeURIComponent(o.no)}`, 'ROES 3.0 - Custom Hearing Aid Order Detail');
+    const trialEnd = o.ship ? addDays(addDays(fromIso(o.ship), 30), 180) : null, inTrial = !trialEnd || TODAY <= trialEnd;
+    return withSide(`<h1>Custom Hearing Aid Order Detail</h1>${patientLine('Entered by: ' + esc(o.enteredBy))}
+      <div class="gray"><div><b>Purchase Order:</b>${esc(o.no)}</div><div><b>Disability Code:</b>${esc(o.disab)}</div>
+        <div><b>Order Date:</b>${long(o.date)}</div><div><b>Ship Date:</b>${o.ship ? long(o.ship) : ''}</div>
+        <div><b>Requested by:</b>${esc(o.requestedBy)}</div><div><b>Warranty:</b>${inTrial ? 'NEW (IN TRIAL PERIOD)' : 'NEW (BEYOND TRIAL PERIOD)'}</div>
+        <div><b>Status:</b>${esc(o.status)}</div><div><b>Vendor:</b>${esc(o.lines[0].make)}</div></div>
+      <table class="grid"><tr><th>Ear</th><th>Model</th><th>Serial Number</th><th>Battery</th><th>Unit Cost</th><th>Status</th><th>Certify</th><th>Issue Date</th><th>Cancel</th></tr>
+        ${o.lines.map((l, i) => { const done = l.status === 'COMPLETE' || l.status === 'CANCELED', certd = l.status !== 'CERT. PENDING'; return `<tr>
+          <td class="c">${l.ear}</td><td>${esc(l.desc)}</td><td class="c">${esc(l.serial)}</td><td class="c">${esc(l.battery)}</td><td class="r">${money(l.price)}</td><td class="c">${esc(l.status)}</td>
+          <td class="c"><input type="checkbox" class="chaCert" data-i="${i}" ${certd ? 'checked disabled' : ''}></td>
+          <td class="c">${done ? (l.issue ? short(l.issue) : '') : `<input type="text" class="chaIssue" data-i="${i}" style="width:90px"> <button data-act="cal" data-for="chaIssue${i}">Calendar</button>`}</td>
+          <td class="c"><input type="checkbox" class="chaCancel" data-i="${i}" ${done || !inTrial ? 'disabled' : ''}></td></tr>`; }).join('')}</table>
+      <div class="note" style="margin-top:6px">Issue dates accept T for today and T-n / T+n. Certify and issue may be submitted together.</div>
+      <div class="cmds"><button class="blue" data-act="back">&lt;&lt; BACK</button>${o.status !== 'CANCELED' && o.status !== 'COMPLETE' ? '<button data-act="chaSubmit">SUBMIT</button>' : ''}<button data-act="printForm">Print Order FORM</button></div>`);
+  }
+  async function chaSubmit() {
+    const o = orders.find(x => x.no === S.p.no);
+    const cert = [...document.querySelectorAll('.chaCert')], iss = [...document.querySelectorAll('.chaIssue')], can = [...document.querySelectorAll('.chaCancel')];
+    if (can.some(c => c.checked)) {
+      if (cert.some(c => c.checked && !c.disabled) || iss.some(i => i.value.trim())) return msg('Submit the certification and/or issue first, then submit the cancel as a separate action.');
+      if (!await msg('Cancel the checked line item(s)? The devices must be returned to the vendor within the trial period.', { confirm: true })) return;
+      can.forEach(c => { if (c.checked) o.lines[c.dataset.i].status = 'CANCEL PENDING'; });
+      o.status = o.lines.every(l => l.status === 'CANCEL PENDING') ? 'CANCEL PENDING' : o.status; save(); return render();
+    }
+    for (const i of iss) {
+      if (!i.value.trim()) continue;
+      const d = parseDate(i.value); if (!d) return msg(`"${i.value}" is not a valid date.`);
+      if (d > TODAY) return msg('The issue date cannot be a future date.');
+      if (o.ship && d < fromIso(o.ship)) return msg('The issue date cannot be before the ship date.');
+    }
+    let changed = false;
+    o.lines.forEach((l, k) => {
+      const c = cert.find(x => +x.dataset.i === k), is = iss.find(x => +x.dataset.i === k), d = is && is.value.trim() ? parseDate(is.value) : null;
+      if (c && c.checked && !c.disabled) { l.status = 'ISSUE DATE PENDING'; changed = true; }
+      if (d && l.status !== 'CERT. PENDING') { l.status = 'COMPLETE'; l.issue = iso(d); changed = true; }
+      else if (d) return; // must certify first
+    });
+    if (!changed) return msg('Check Certify and/or enter an Issue Date, then press SUBMIT.');
+    const st = o.lines.map(l => l.status);
+    o.status = st.every(s => s === 'COMPLETE') ? 'COMPLETE' : st.includes('CERT. PENDING') ? 'CERT. PENDING' : 'ISSUE DATE PENDING';
+    if (o.status === 'COMPLETE') o.lines.forEach(l => { if (!aids.some(a => a.serial === l.serial)) aids.push({ pt: o.pt, issue: l.issue, make: l.make, model: l.item, serial: l.serial, ear: l.ear, station: STATION, auth: true }); });
+    save(); await msg(o.status === 'COMPLETE' ? 'The order is complete. The hearing aids have been added to the patient\'s authorized aids.' : 'The order has been updated:\n\n' + o.lines.map(l => `${l.ear} ear ${l.serial}: ${l.status}`).join('\n'), { icon: 'info' }); render();
+  }
+
+  // ----- Commodity order form, special request, summary -----
+  function newForm(kind) {
+    const p = S.pt, rec = p && ptRec[p.id];
+    return { kind, requestedBy: USER.name, service: 'HOME TELEHEALTH', disab: rec ? rec.disab[0].code : '', group: kind === 'special' ? 'Home Telehealth' : 'Home Telehealth', item: '', qty: '', trans: 'Initial', deliv: 'Routine', phone: '', search: '', make: '', desc: '', remarks: '', routing: '', deliverTo: '', addr: S.form && S.form.addr || null };
+  }
+  function commodityItems(f) { const all = CAT[f.group] || []; const q = (f.search || '').toUpperCase(); return q ? all.filter(r => r[0].startsWith(q) || r[2].includes(q)) : (f.group === 'Prosthetic Socks' ? [] : all); }
+  function qtyOptions(it) { if (!it) return []; const out = []; for (let q = it.mult; q <= it.max; q += it.mult) out.push(String(q)); return out; }
+  function deliveryBlock(f, station) {
+    const addrNote = station ? `Current delivery address is:<br><br>${STATION_ADDR.map(esc).join('<br>')}` : (f.addr ? `Delivery address for this order: ${f.addr.temp ? '<b>TEMPORARY</b>' : 'edited'}<br>${esc(f.addr.l1)}, ${esc(f.addr.city)}, ${esc(f.addr.st)} ${esc(f.addr.zip)}` : 'Current delivery address is patient\'s permanent address.');
+    return `<div class="note">${addrNote}</div>
+      <div style="margin:4px 0 14px"><button style="width:100%" data-act="${station ? 'stationAddr' : 'address'}">${station ? 'Click here to edit/check address' : 'Click to verify/edit the delivery address'}</button></div>
+      <div><b>Delivery Category:</b><br>${['Routine', 'Priority', 'Emergency'].map(d => `<label style="margin-right:12px"><input type="radio" name="deliv" value="${d}" ${f.deliv === d ? 'checked' : ''}> ${d}</label>`).join('')}</div>
+      <div style="margin-top:8px"><b>Enter a phone number for emergency orders:</b><br><input type="text" id="fPhone" value="${esc(f.phone)}" style="width:160px" ${f.deliv === 'Emergency' ? '' : ''}></div>`;
+  }
+  PAGES.commodity = () => {
+    const f = S.form && S.form.kind === 'commodity' ? S.form : (S.form = newForm('commodity'));
+    const items = commodityItems(f), it = ITEMS[f.item];
+    report('/roes3/CommodityOrder.asp', 'ROES 3.0 - ROES Commodity Order Form');
+    const disabs = ptRec[S.pt.id].disab.map(d => d.code);
+    return withSide(`<h1>ROES Commodity Order Form</h1>${patientLine('Entered by: ' + USER.name)}
+      <div class="form fgrid"><div>
+        <div class="frow"><label>Requested By:</label><select id="fReq" style="width:170px">${opt(USERS, f.requestedBy)}</select></div>
+        <div class="frow"><label>Requestor's Service:</label><select id="fSvc" style="width:230px">${opt(SERVICES, f.service)}</select></div>
+        <div class="frow"><label>Disability Code:</label><select id="fDis">${opt(disabs, f.disab)}</select></div>
+        <div class="frow" style="margin-top:18px"><label>Select Commodity Group:</label><select id="fGroup" style="width:200px">${opt(Object.keys(CAT), f.group)}</select></div>
+        <div class="frow"><label>Select Item:</label><select id="fItem" style="width:200px"><option value="">${items.length ? '-- select --' : f.group === 'Prosthetic Socks' ? '-- use Search --' : '-- none found --'}</option>${items.map(r => `<option value="${r[0]}" ${r[0] === f.item ? 'selected' : ''}>${esc(r[0])}  ${esc(r[2])}</option>`).join('')}</select>
+          <button data-act="toggleSearch">Search</button></div>
+        <div class="frow" id="searchRow" ${f.searchOpen ? '' : 'hidden'}><label></label><input type="text" id="fSearch" value="${esc(f.search)}" style="width:110px" placeholder="e.g. W-5"><button data-act="doSearch">Search</button><button data-act="clearSearch">Clear</button></div>
+        <div class="frow"><label></label><button data-act="special">Order Special Request Items</button></div>
+        <div class="frow" style="margin-top:14px"><label>Quantity:</label><select id="fQty" style="width:60px">${opt(['', ...qtyOptions(it)], f.qty)}</select>${it && it.mult > 1 ? `<span class="note">(multiples of ${it.mult})</span>` : ''}</div>
+        <div class="frow"><label>Type of Transaction:</label><select id="fTrans">${opt(['Initial', 'Spare', 'Replace'], f.trans)}</select></div>
+      </div><div>
+        ${deliveryBlock(f)}
+        <div style="margin-top:26px;color:#777"><span>DALC Quantity on Hand</span><br><input type="text" readonly style="width:80px" value="${it ? it.qoh : ''}"></div>
+        ${it ? `<div class="note" style="margin-top:10px">${esc(it.desc)}<br>Make: ${esc(it.make)} &nbsp; HCPCS: ${esc(it.hcpcs)} &nbsp; Unit price: $${money(it.price)}</div>` : ''}
+      </div></div>
+      <div class="cmds"><button data-act="formExit">Exit</button><button data-act="formReset">Reset</button><span class="sp"></span><button data-act="addToOrder">Add to Order</button>${S.cart.length && S.cartKind === 'pt' ? '<button data-act="summary">View Order Summary</button>' : ''}<span class="sp"></span></div>`);
+  };
+  PAGES.special = () => {
+    const f = S.form && S.form.kind === 'special' ? S.form : (S.form = Object.assign(newForm('special'), { addr: S.form && S.form.addr }));
+    report('/roes3/SpecialRequest.asp', 'ROES 3.0 - ROES Special Request Order Form');
+    const disabs = ptRec[S.pt.id].disab.map(d => d.code);
+    return withSide(`<h1>ROES Special Request Order Form</h1>${patientLine('Entered by: ' + USER.name)}
+      <div class="warnbar">Special request items are not normally stocked by the DALC. Each request is evaluated on a one-by-one basis and will show as <b>Awaiting Processing</b> on the Unprocessed Orders list.</div>
+      <div class="form fgrid"><div>
+        <div class="frow"><label>Requested By:</label><select id="fReq" style="width:170px">${opt(USERS, f.requestedBy)}</select></div>
+        <div class="frow"><label>Requestor's Service:</label><select id="fSvc" style="width:230px">${opt(SERVICES, f.service)}</select></div>
+        <div class="frow"><label>Disability Code:</label><select id="fDis">${opt(disabs, f.disab)}</select></div>
+        <div class="frow" style="margin-top:18px"><label>Select Commodity Group:</label><select id="fGroup" style="width:200px">${opt(Object.keys(CAT), f.group)}</select></div>
+        <div class="frow"><label>Enter Make:</label><input type="text" id="fMake" value="${esc(f.make)}" style="width:200px"></div>
+        <div class="frow"><label>Enter Item:</label><input type="text" id="fDesc" value="${esc(f.desc)}" style="width:260px"></div>
+        <div class="frow"><label>Quantity:</label><input type="text" id="fQtyT" value="${esc(f.qty)}" style="width:60px"></div>
+        <div class="frow"><label>Type of Transaction:</label><select id="fTrans">${opt(['Initial', 'Spare', 'Replace'], f.trans)}</select></div>
+      </div><div>${deliveryBlock(f)}</div></div>
+      <div class="cmds"><button data-act="toCommodity">Return to Commodity Order Form</button><button data-act="formReset">Reset</button><span class="sp"></span><button data-act="addToOrder">Add to Order</button>${S.cart.length && S.cartKind === 'pt' ? '<button data-act="summary">View Order Summary</button>' : ''}<span class="sp"></span></div>`);
+  };
+  function readForm() {
+    const f = S.form, v = id => $(id) ? $(id).value : undefined;
+    if (v('fReq') !== undefined) f.requestedBy = v('fReq');
+    if (v('fSvc') !== undefined) f.service = v('fSvc');
+    if (v('fDis') !== undefined) f.disab = v('fDis');
+    if (v('fGroup') !== undefined) f.group = v('fGroup');
+    if (v('fItem') !== undefined) f.item = v('fItem');
+    if (v('fQty') !== undefined) f.qty = v('fQty');
+    if (v('fQtyT') !== undefined) f.qty = v('fQtyT').trim();
+    if (v('fTrans') !== undefined) f.trans = v('fTrans');
+    if (v('fSearch') !== undefined) f.search = v('fSearch').trim();
+    if (v('fMake') !== undefined) f.make = v('fMake').trim();
+    if (v('fDesc') !== undefined) f.desc = v('fDesc').trim();
+    if (v('fPhone') !== undefined) f.phone = v('fPhone').trim();
+    if (v('fRemarks') !== undefined) f.remarks = v('fRemarks').trim();
+    if (v('fRouting') !== undefined) f.routing = v('fRouting').trim();
+    if (v('fDeliverTo') !== undefined) f.deliverTo = v('fDeliverTo').trim();
+    const r = document.querySelector('input[name=deliv]:checked'); if (r) f.deliv = r.value;
+  }
+  async function addToOrder() {
+    readForm(); const f = S.form;
+    if (!f.requestedBy || !f.service) return msg('Requested By and Requestor\'s Service are required.');
+    if (f.kind !== 'stock' && !f.disab) return msg('Please select a Disability Code.');
+    if (f.deliv === 'Emergency' && !/^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(f.phone)) return msg('A contact phone number, starting with the area code, is required for emergency orders.');
+    let ln;
+    if (f.kind === 'special') {
+      if (!f.make || !f.desc) return msg('Please enter both the Make and the Item you wish to order.');
+      if (!/^\d+$/.test(f.qty) || +f.qty < 1 || +f.qty > 99) return msg('Please enter a quantity from 1 to 99.');
+      ln = { group: f.group, item: 'SPECIAL', make: f.make.toUpperCase(), desc: f.desc.toUpperCase(), hcpcs: '', qty: +f.qty, price: 0, special: true };
+    } else {
+      if (!f.item) return msg('Please select an item. Use the Search button to find items by their first characters.');
+      if (!f.qty) return msg('Please select a quantity.');
+      ln = line(f.item, +f.qty);
+    }
+    Object.assign(ln, { deliv: f.deliv.toUpperCase(), trans: f.trans.toUpperCase(), disab: f.disab, requestedBy: f.requestedBy, service: f.service, phone: f.phone, addr: f.addr, remarks: f.remarks, routing: f.routing, deliverTo: f.deliverTo });
+    const kind = f.kind === 'stock' ? 'station' : 'pt';
+    if (S.cartKind !== kind) S.cart = [];
+    S.cartKind = kind;
+    if (f.editIdx != null) S.cart[f.editIdx] = ln; else S.cart.push(ln);
+    S.submitted = false; S.form = null; go('summary');
+  }
+  PAGES.summary = () => {
+    const st = S.cartKind === 'station';
+    report('/roes3/OrderSummary.asp', st ? 'ROES 3.0 - Station Stock Summary' : 'ROES 3.0 - ROES Order Summary');
+    const tq = S.cart.reduce((s, l) => s + l.qty, 0), tp = S.cart.reduce((s, l) => s + l.qty * l.price, 0);
+    const body = `<h1>${st ? 'Station Stock Summary' : 'ROES Order Summary'}</h1>${st ? `<div class="ptline"><span>Site: ${STATION}</span><span></span><span>Entered by: ${USER.name}</span></div>` : patientLine('Entered by: ' + USER.name)}
+      <table class="grid"><tr><th>Commodity<br>Group</th><th>Item</th><th>Delivery<br>Category</th><th>Quantity</th><th>Unit Price</th><th>Total Price</th>${S.submitted ? '' : '<th></th><th></th>'}</tr>
+        ${S.cart.map((l, i) => `<tr><td>${esc(l.group)}</td><td>${esc(l.special ? l.make + ' ' + l.desc : l.item + ' - ' + l.desc)}<br>HCPCS:${esc(l.hcpcs || 'N/A')}<br>Order #${esc(l.no || 'Pending')}</td><td class="c">${esc(l.deliv)}</td><td class="c">${l.qty}</td><td class="r">${l.special ? 'TBD' : money(l.price)}</td><td class="r">${l.special ? 'TBD' : '$' + money(l.qty * l.price)}</td>
+          ${S.submitted ? '' : `<td class="c"><button data-act="cartDel" data-i="${i}">delete</button></td><td class="c"><button data-act="cartEdit" data-i="${i}">edit</button></td>`}</tr>`).join('') || `<tr><td colspan="8" class="c" style="padding:12px">There are no items on this order.</td></tr>`}</table>
+      <table class="grid" style="margin-top:8px;background:#f9caca"><tr><td style="width:62%"><b>Totals:</b></td><td class="c" style="width:9%">${tq}</td><td style="width:10%"></td><td class="r"><b>$${money(tp)}</b></td><td style="width:16%"></td></tr></table>
+      <div class="cmds">${S.submitted ? `<button data-act="${st ? 'station' : 'history'}">Exit</button>` : `<button data-act="addAnother">Add Another Item</button><button data-act="cartSubmit" ${S.cart.length ? '' : 'disabled'}>Submit</button><span class="sp"></span><button data-act="formExit">Exit</button>`}</div>`;
+    return st ? stationWrap(body) : withSide(body);
+  };
+  async function cartSubmit() {
+    if (!S.cart.length) return;
+    const st = S.cartKind === 'station';
+    S.cart.forEach(l => {
+      const no = l.special ? `26-S${seq++}` : `26-${seq++}`;
+      const it = ITEMS[l.item], back = it && l.qty > it.qoh;
+      if (it) it.qoh = Math.max(0, it.qoh - l.qty);
+      l.no = no;
+      orders.push({ no, pt: st ? null : S.pt.id, date: iso(TODAY), type: st ? 'STATION STOCK' : l.special ? 'SPECIAL REQUEST' : l.group.toUpperCase(), by: USER.ini, enteredBy: USER.name, requestedBy: l.requestedBy, service: l.service,
+        disab: st ? '' : l.disab, deliv: l.deliv, trans: l.trans, approvedBy: USER.name, proc: !l.special, status: l.special ? 'AWAITING PROC' : back ? 'BACKORDERED' : 'PEND.SHIPMT', remarks: [l.remarks, l.routing && 'ROUTING ' + l.routing, l.deliverTo && 'DELIVER TO ' + l.deliverTo, l.phone && 'PHONE ' + l.phone, l.addr && 'SHIP TO ' + [l.addr.l1, l.addr.city, l.addr.st, l.addr.zip].join(' ')].filter(Boolean).join('; '),
+        lines: [{ group: l.group, item: l.item, make: l.make, desc: l.desc, hcpcs: l.hcpcs, qty: l.qty, price: l.price }] });
+    });
+    save(); S.submitted = true; S.form = null;
+    await msg('Order has been submitted', { icon: 'info' }); render();
+  }
+
+  // ----- Patient delivery address -----
+  PAGES.address = () => {
+    const rec = ptRec[S.pt.id], a = S.form.addr || { l1: rec.addr[0], l2: rec.addr[1], city: rec.addr[2], st: rec.addr[3], zip: rec.addr[4], temp: false, from: '', to: '', upd: 'No' };
+    report('/roes3/PatientAddress.asp', 'ROES 3.0 - Patient Delivery Address');
+    const f = (id, v, w = 220) => `<input type="text" id="${id}" value="${esc(v)}" style="width:${w}px">`;
+    return withSide(`<h1>Patient Delivery Address</h1>${patientLine('Entered by: ' + USER.name)}
+      <div class="fgrid" style="grid-template-columns:1fr 1.3fr"><div><b>Address on file at the DALC:</b><div style="margin-top:8px;line-height:1.6">${esc(ptName(S.pt))}<br>${esc(rec.addr[0])}${rec.addr[1] ? '<br>' + esc(rec.addr[1]) : ''}<br>${esc(rec.addr[2])}, ${esc(rec.addr[3])} ${esc(rec.addr[4])}</div></div>
+      <div><div class="frow"><label>Street Address:</label>${f('aL1', a.l1)}</div><div class="frow"><label>Line 2:</label>${f('aL2', a.l2)}</div>
+        <div class="frow"><label>City:</label>${f('aCity', a.city, 160)}</div><div class="frow"><label>State:</label>${f('aSt', a.st, 40)} <b>Zip:</b> ${f('aZip', a.zip, 80)}</div>
+        <div class="frow"><label>Temporary Start Date:</label>${f('aFrom', a.from, 100)} <button data-act="cal" data-for="aFrom">Calendar</button></div>
+        <div class="frow"><label>Temporary End Date:</label>${f('aTo', a.to, 100)} <button data-act="cal" data-for="aTo">Calendar</button></div>
+        <div class="frow"><label style="width:auto">Update the Patient File with the delivery address?</label><label><input type="radio" name="aUpd" value="Yes" ${a.upd === 'Yes' ? 'checked' : ''}> Yes</label><label><input type="radio" name="aUpd" value="No" ${a.upd !== 'Yes' ? 'checked' : ''}> No</label></div></div></div>
+      <div class="cmds"><button data-act="addrBack">&lt;&lt; Back</button><button data-act="addrReset">Reset</button><button data-act="addrAccept">Accept Address</button></div>`);
+  };
+  async function addrAccept() {
+    const v = id => $(id).value.trim().toUpperCase();
+    const a = { l1: v('aL1'), l2: v('aL2'), city: v('aCity'), st: v('aSt'), zip: v('aZip'), from: v('aFrom'), to: v('aTo'), upd: document.querySelector('input[name=aUpd]:checked').value };
+    if (!a.l1 || !a.city || !/^[A-Z]{2}$/.test(a.st) || !/^\d{5}(-\d{4})?$/.test(a.zip)) return msg('Please enter a street address, city, 2-letter state and 5 or 9 digit zip code.');
+    if (a.from || a.to) { const f = parseDate(a.from), t = parseDate(a.to); if (!f || !t) return msg('Please enter valid temporary start and end dates (T, T+n, MM/DD/YYYY).'); if (t < f) return msg('The temporary end date must be after the start date.'); a.from = short(iso(f)); a.to = short(iso(t)); a.temp = true; }
+    if (a.upd === 'Yes' && !a.temp) { ptRec[S.pt.id].addr = [a.l1, a.l2, a.city, a.st, a.zip]; save(); S.form.addr = null; await msg('The DALC patient file has been updated with the new address.', { icon: 'info' }); }
+    else S.form.addr = a;
+    go(S.form.kind);
+  }
+
+  // ----- Device registration -----
+  PAGES.devreg = () => {
+    const f = S.dev || (S.dev = { requestedBy: USER.name, service: 'HOME TELEHEALTH', disab: ptRec[S.pt.id].disab[0].code, make: '', model: '', fMake: '', fModel: '', issue: short(iso(TODAY)), serial: '', ear: '', furnished: 'Clinic Station Stock', replenish: 'No', replaced: '', battery: '', orderBatt: 'No', remarks: '', mq: '' });
+    report('/roes3/DeviceRegistration.asp', 'ROES 3.0 - ROES Device Registration Form');
+    const models = f.make ? DEVMAKES[f.make].filter(m => !f.mq || m[0].startsWith(f.mq.toUpperCase())) : [];
+    const mine = aids.filter(a => a.pt === S.pt.id && a.auth);
+    return withSide(`<h1>ROES Device Registration Form</h1>${patientLine('Entered by: ' + USER.name)}
+      <div class="form">
+        <div class="frow"><label>Requested by:</label><select id="dReq" style="width:170px">${opt(USERS, f.requestedBy)}</select></div>
+        <div class="frow"><label>Requesting Service:</label><select id="dSvc" style="width:230px">${opt(SERVICES, f.service)}</select></div>
+        <div class="frow"><label>Disability Code:</label><select id="dDis">${opt(ptRec[S.pt.id].disab.map(d => d.code), f.disab)}</select></div>
+        <div style="font-weight:bold;margin:10px 0 4px">** Select from the drop down list on the left. If the desired item is not on the list, type the model and make in the boxes on the right **</div>
+        <div class="fgrid"><div>
+          <div class="frow"><label>Make:</label><select id="dMake" style="width:200px">${opt([['', ''], ...Object.keys(DEVMAKES).map(k => [k, k])], f.make)}</select></div>
+          <div class="frow"><label>Model:</label><select id="dModel" style="width:160px">${opt([['', ''], ...models.map(m => [m[0], m[0]])], f.model)}</select> <button data-act="devSearch">Search</button></div>
+        </div><div>
+          <div class="frow"><label>Make:</label><input type="text" id="dFMake" value="${esc(f.fMake)}" style="width:150px"></div>
+          <div class="frow"><label>Model:</label><input type="text" id="dFModel" value="${esc(f.fModel)}" style="width:150px"></div>
+        </div></div>
+        <div class="fgrid" style="margin-top:12px"><div>
+          <div class="frow"><label>Issue Date:</label><input type="text" id="dIssue" value="${esc(f.issue)}" style="width:100px"> <button data-act="cal" data-for="dIssue">Calendar</button></div>
+          <div class="frow"><label>Serial Number:</label><input type="text" id="dSerial" value="${esc(f.serial)}" style="width:150px"></div>
+          <div class="frow"><label>Ear:</label><label><input type="radio" name="dEar" value="R" ${f.ear === 'R' ? 'checked' : ''}> Right</label><label><input type="radio" name="dEar" value="L" ${f.ear === 'L' ? 'checked' : ''}> Left</label><label><input type="radio" name="dEar" value="" ${!f.ear ? 'checked' : ''}> N/A</label></div>
+        </div><div>
+          <div class="frow"><label>Furnished by:</label><select id="dFurn">${opt(['Clinic Station Stock', 'DALC', 'Vendor Direct', 'Loaner'], f.furnished)}</select></div>
+          <div class="frow"><label>Replenish stock if available?</label><label><input type="radio" name="dRep" value="Yes" ${f.replenish === 'Yes' ? 'checked' : ''}> Yes</label><label><input type="radio" name="dRep" value="No" ${f.replenish !== 'Yes' ? 'checked' : ''}> No</label></div>
+          <div class="frow"><label>Serial Number of Replaced Item:</label><select id="dRepl">${opt([['', 'Click to Select'], ...mine.map(a => [a.serial, `${a.model} ${a.serial}`])], f.replaced)}</select></div>
+        </div></div>
+        <div class="fgrid" style="margin-top:12px"><div>
+          <div class="frow"><label>Battery type:</label><select id="dBatt">${opt(BATTERIES, f.battery)}</select></div>
+          <div class="frow"><label>Order Batteries?</label><label><input type="radio" name="dOB" value="Yes" ${f.orderBatt === 'Yes' ? 'checked' : ''}> Yes</label><label><input type="radio" name="dOB" value="No" ${f.orderBatt !== 'Yes' ? 'checked' : ''}> No</label></div>
+        </div><div class="frow"><span class="note">Delivery address for batteries</span><button data-act="na:Battery delivery address">Click here to edit/verify</button></div></div>
+        <div class="frow"><label>Remarks:</label><input type="text" id="dRem" value="${esc(f.remarks)}" style="width:340px"></div>
+      </div>
+      <div class="cmds"><button data-act="devExit">&lt;&lt; Exit</button><button data-act="devReset">Reset</button><button data-act="devAdd">Add to Order</button>${S.devCart && S.devCart.length ? '<button data-act="devsum">View Registration Summary</button>' : ''}</div>`);
+  };
+  function readDev() {
+    const f = S.dev, v = id => $(id) ? $(id).value.trim() : '';
+    Object.assign(f, { requestedBy: v('dReq'), service: v('dSvc'), disab: v('dDis'), make: v('dMake'), model: v('dModel'), fMake: v('dFMake').toUpperCase(), fModel: v('dFModel').toUpperCase(), issue: v('dIssue'), serial: v('dSerial').toUpperCase(), furnished: v('dFurn'), replaced: v('dRepl'), battery: v('dBatt'), remarks: v('dRem') });
+    f.ear = (document.querySelector('input[name=dEar]:checked') || {}).value || '';
+    f.replenish = (document.querySelector('input[name=dRep]:checked') || {}).value || 'No';
+    f.orderBatt = (document.querySelector('input[name=dOB]:checked') || {}).value || 'No';
+  }
+  async function devAdd() {
+    readDev(); const f = S.dev;
+    const left = f.make || f.model, right = f.fMake || f.fModel;
+    if (left && right) return msg('You must use either both drop down boxes on the left or both free text boxes on the right.');
+    if (left && !(f.make && f.model)) return msg('Please select both a Make and a Model from the drop down lists.');
+    if (right && !(f.fMake && f.fModel)) return msg('Please enter both a Make and a Model in the free text boxes.');
+    if (!left && !right) return msg('Please select or enter the Make and Model of the device.');
+    const d = parseDate(f.issue); if (!d) return msg('Please enter a valid Issue Date. You may use T for today or T-n.'); if (d > TODAY) return msg('The issue date cannot be a future date.');
+    if (!f.serial) return msg('Please enter the serial number. Double check serial numbers before submitting.');
+    if (aids.some(a => a.serial === f.serial) || (S.devCart || []).some(x => x.serial === f.serial)) return msg(`Serial number ${f.serial} is already registered.`);
+    if (f.orderBatt === 'Yes' && !f.battery) return msg('Select a battery type to order batteries.');
+    const mk = left ? f.make : f.fMake, md = left ? f.model : f.fModel, m = left ? DEVMAKES[f.make].find(x => x[0] === f.model) : null;
+    (S.devCart = S.devCart || []).push({ group: m ? m[1] : 'Other', make: mk, model: md, disab: f.disab, issue: iso(d), serial: f.serial, ear: f.ear, battery: f.battery, orderBatt: f.orderBatt, replaced: f.replaced, furnished: f.furnished, requestedBy: f.requestedBy, service: f.service, remarks: f.remarks });
+    S.dev = null; S.devDone = false; go('devsum');
+  }
+  PAGES.devsum = () => {
+    report('/roes3/DeviceRegistrationSummary.asp', 'ROES 3.0 - ROES Device Registration Summary');
+    const c = S.devCart || [];
+    return withSide(`<h1>ROES Device Registration Summary</h1>${patientLine('Entered by: ' + USER.name)}
+      <table class="grid"><tr><th>Commodity Group</th><th>Item</th><th>Disability</th><th>Issue Date</th><th>Serial Number</th><th>Ear</th><th>Battery</th>${S.devDone ? '' : '<th></th>'}</tr>
+      ${c.map((x, i) => `<tr><td>${esc(x.group)}</td><td>${esc(x.make)} ${esc(x.model)}<br>Order #${esc(x.no || 'Pending')}</td><td class="c">${esc(x.disab)}</td><td class="c">${short(x.issue)}</td><td class="c">${esc(x.serial)}</td><td class="c">${esc(x.ear || '')}</td><td class="c">${esc(x.battery)}${x.orderBatt === 'Yes' ? ' (ORDER)' : ''}</td>${S.devDone ? '' : `<td class="c"><button data-act="devDel" data-i="${i}">delete</button></td>`}</tr>`).join('') || '<tr><td colspan="8" class="c" style="padding:12px">No devices on this registration.</td></tr>'}</table>
+      <div class="cmds">${S.devDone ? '<button data-act="history">Exit</button>' : `<button data-act="devreg">Add Another Item</button><button data-act="devSubmit" ${c.length ? '' : 'disabled'}>Submit</button><span class="sp"></span><button data-act="devExit">Exit</button>`}</div>`);
+  };
+  async function devSubmit() {
+    const c = S.devCart || []; if (!c.length) return;
+    c.forEach(x => {
+      x.no = `26-${seq++}`;
+      orders.push({ no: x.no, pt: S.pt.id, date: iso(TODAY), type: 'DEVICE REG', by: USER.ini, enteredBy: USER.name, requestedBy: x.requestedBy, service: x.service, disab: x.disab, deliv: 'N/A', trans: x.furnished.toUpperCase(), approvedBy: USER.name, proc: true, status: 'COMPLETE', remarks: x.remarks,
+        lines: [{ group: x.group, item: x.model, make: x.make, desc: `${x.make} ${x.model}${x.ear ? ' (' + x.ear + ')' : ''}`, hcpcs: '', qty: 1, price: 0, serial: x.serial }] });
+      if (x.replaced) { const r = aids.find(a => a.serial === x.replaced); if (r) r.auth = false; }
+      aids.push({ pt: S.pt.id, issue: x.issue, make: x.make, model: x.model, serial: x.serial, ear: x.ear, station: STATION, auth: true });
+      if (x.orderBatt === 'Yes' && ITEMS[x.battery]) { const it = ITEMS[x.battery]; orders.push({ no: `26-${seq++}`, pt: S.pt.id, date: iso(TODAY), type: 'BATTERIES', by: USER.ini, enteredBy: USER.name, requestedBy: x.requestedBy, service: x.service, disab: x.disab, deliv: 'ROUTINE', trans: 'INITIAL', approvedBy: USER.name, proc: true, status: 'PEND.SHIPMT', lines: [line(x.battery, it.mult * 2)] }); }
+    });
+    save(); S.devDone = true; await msg('Device registration has been submitted. The device(s) are now authorized on the patient\'s record.', { icon: 'info' }); render();
+  }
+
+  // ----- Record updates and authorized aids -----
+  PAGES.record = () => {
+    const rec = ptRec[S.pt.id], dr = S.recDraft || (S.recDraft = { disab: rec.disab.map(d => ({ ...d })), addr: rec.addr.slice(), aids: aids.filter(a => a.pt === S.pt.id).map(a => ({ serial: a.serial, auth: a.auth })), showUn: false });
+    report('/roes3/RecordUpdate.asp', 'ROES 3.0 - Record Update Form');
+    const shown = aids.filter(a => a.pt === S.pt.id && a.auth === !dr.showUn);
+    return withSide(`<h1>Record Update Form</h1>${patientLine('User: ' + USER.name)}
+      <div class="tblbox"><div class="cap">Edit Authorizing Clinic:</div><table class="grid"><tr><th>Disability</th><th>Description</th><th>Eligibility Station</th><th>Remarks</th></tr>
+        ${dr.disab.map((d, i) => `<tr><td class="c">${esc(d.code)}</td><td>${esc(DISAB_DESC[d.code] || '')}</td><td><select class="recSt" data-i="${i}">${opt([STATION, '442 - VA ROCKY MOUNTAIN HCS', '554 - VA EASTERN COLORADO HCS'], d.station)}</select></td><td>${esc(d.remarks)}</td></tr>`).join('')}</table></div>
+      <div class="tblbox"><div class="cap">Change Address:</div><div class="fgrid" style="padding:6px 10px;background:#fff8f8">
+        <div style="line-height:1.6"><b>Current Address:</b><br>${esc(rec.addr[0])}${rec.addr[1] ? '<br>' + esc(rec.addr[1]) : ''}<br>${esc(rec.addr[2])}, ${esc(rec.addr[3])} ${esc(rec.addr[4])}</div>
+        <div><div class="frow"><label style="width:90px">New Address:</label><input type="text" id="rL1" value="${esc(dr.addr[0])}" style="width:220px"></div>
+          <div class="frow"><label style="width:90px"></label><input type="text" id="rL2" value="${esc(dr.addr[1])}" style="width:220px"></div>
+          <div class="frow"><label style="width:90px">City/St/Zip:</label><input type="text" id="rCity" value="${esc(dr.addr[2])}" style="width:120px"><input type="text" id="rSt" value="${esc(dr.addr[3])}" style="width:36px"><input type="text" id="rZip" value="${esc(dr.addr[4])}" style="width:70px"></div></div></div></div>
+      <div class="tblbox"><div class="cap">Edit ${dr.showUn ? 'Unauthorized' : 'Authorized'} Aids:</div><table class="grid"><tr><th>Issue Date</th><th>Make</th><th>Model</th><th>Serial Number</th><th>Ear</th><th>Issuing Station</th><th>Aid Status</th></tr>
+        ${shown.map(a => { const x = dr.aids.find(y => y.serial === a.serial), changed = x.auth !== a.auth; return `<tr class="${changed ? 'hl' : ''}"><td class="c">${short(a.issue)}</td><td class="c">${esc(a.make)}</td><td class="c">${esc(a.model)}</td><td class="c">${esc(a.serial)}</td><td class="c">${esc(a.ear)}</td><td class="c">${esc(a.station)}</td><td class="c"><button data-act="recToggle" data-s="${esc(a.serial)}" style="width:96px">${x.auth ? 'Authorized' : 'Unauthorized'}</button></td></tr>`; }).join('') || `<tr><td colspan="7" class="c" style="padding:10px">No ${dr.showUn ? 'unauthorized' : 'authorized'} aids on record.</td></tr>`}</table>
+        <div style="padding:4px"><button data-act="recShowUn">${dr.showUn ? 'Edit Authorized Aids&gt;&gt;' : 'Edit Unauthorized Aids&gt;&gt;'}</button></div></div>
+      <div class="cmds"><button data-act="recExit">Exit</button><button data-act="recReset">Reset</button><button data-act="recSubmit">Submit</button></div>`);
+  };
+  function readRec() {
+    const dr = S.recDraft; if (!$('rL1')) return;
+    dr.addr = ['rL1', 'rL2', 'rCity', 'rSt', 'rZip'].map(id => $(id).value.trim().toUpperCase());
+    document.querySelectorAll('.recSt').forEach(s => { dr.disab[s.dataset.i].station = s.value; });
+  }
+  async function recSubmit() {
+    readRec(); const dr = S.recDraft, rec = ptRec[S.pt.id];
+    if (!dr.addr[0] || !dr.addr[2] || !/^[A-Z]{2}$/.test(dr.addr[3]) || !/^\d{5}(-\d{4})?$/.test(dr.addr[4])) return msg('Please enter a complete address with a 2-letter state and 5 or 9 digit zip code.');
+    if (!dr.disab.some(d => d.station === STATION)) return msg('At least one eligibility station must be your station to update this record.');
+    const changes = [];
+    if (dr.addr.join('|') !== rec.addr.join('|')) changes.push('Address changed to ' + dr.addr.filter(Boolean).join(', '));
+    dr.disab.forEach((d, i) => { if (d.station !== rec.disab[i].station) changes.push(`${d.code} eligibility station changed to ${d.station}`); });
+    dr.aids.forEach(x => { const a = aids.find(y => y.serial === x.serial); if (a.auth !== x.auth) changes.push(`${a.model} ${a.serial} ${x.auth ? 'returned to service' : 'removed from service'}`); });
+    if (!changes.length) return msg('No changes have been made.');
+    rec.addr = dr.addr; rec.disab = dr.disab;
+    dr.aids.forEach(x => { aids.find(y => y.serial === x.serial).auth = x.auth; });
+    save(); S.recDraft = null;
+    if (await msg('The patient record has been updated:\n\n' + changes.join('\n') + '\n\nPrint the changes?', { confirm: true, icon: 'info' })) window.print();
+    go('history');
+  }
+  PAGES.aids = () => {
+    const un = S.aidsView === 'un', list = aids.filter(a => a.pt === S.pt.id && a.auth === !un).sort((a, b) => b.issue.localeCompare(a.issue));
+    report('/roes3/AuthorizedAids.asp', 'ROES 3.0 - ROES View Authorized Aids');
+    return withSide(`<h1>ROES View ${un ? 'Unauthorized' : 'Authorized'} Aids</h1>${patientLine()}
+      <table class="grid"><tr><th>Issue Date</th><th>Make</th><th>Model</th><th>Serial Number</th><th>Ear</th><th>Issuing Station</th></tr>
+        ${list.map(a => `<tr><td class="c">${short(a.issue)}</td><td class="c">${esc(a.make)}</td><td class="c">${esc(a.model)}</td><td class="c">${esc(a.serial)}</td><td class="c">${esc(a.ear)}</td><td class="c">${esc(a.station)}</td></tr>`).join('') || `<tr><td colspan="6" class="c" style="padding:12px">No ${un ? 'unauthorized' : 'authorized'} aids on record.</td></tr>`}</table>
+      <div class="cmds"><button data-act="aidsToggle">View ${un ? 'Authorized' : 'Unauthorized'} Aids</button><button data-act="record">Update Record</button><button data-act="history">Exit</button></div>`);
+  };
+
+  // ----- Pending actions -----
+  PAGES.pending = () => {
+    const scope = S.pt ? orders.filter(o => o.pt === S.pt.id) : orders;
+    report('/roes3/PendingActions.asp', 'ROES 3.0 - Pending Actions');
+    const tbl = (cap, list) => `<div class="tblbox"><div class="cap">${cap}</div><table class="grid"><tr><th>Order Date</th><th>Order Number</th><th>Patient</th><th>Order Type</th><th>Ordered By</th><th>Item(s)</th></tr>
+      ${list.map(o => `<tr class="red"><td class="c"><a data-act="detail" data-no="${esc(o.no)}">${short(o.date)}</a></td><td class="c">${esc(o.no)}</td><td class="c">${o.pt ? esc(ptName(byId[o.pt])) : 'STATION'}</td><td class="c">${esc(o.type)}</td><td class="c">${esc(o.requestedBy)}</td><td class="c">${o.lines.map(l => esc(l.item === 'SPECIAL' ? l.desc : l.desc.split(' OPT')[0] || l.item)).join('<br>')}</td></tr>`).join('') || '<tr><td colspan="6" class="c" style="padding:8px;color:#555">None</td></tr>'}</table></div>`;
+    const body = `<h1>Pending Actions on ROES Orders for ${S.pt ? esc(ptName(S.pt)) : STATION}</h1>
+      ${tbl('ROES Orders - Pending Approval', scope.filter(o => o.status === 'PENDING'))}
+      ${tbl('ROES Orders - Pending Certification', scope.filter(o => o.status === 'CERT. PENDING'))}
+      ${tbl('ROES Orders - Pending Issue', scope.filter(o => o.status === 'ISSUE DATE PENDING'))}
+      <div class="cmds"><button data-act="${S.pt ? 'history' : 'home'}">Exit</button></div>`;
+    return S.pt ? withSide(body) : plain(body);
+  };
+
+  // ----- Not part of this simulation -----
+  PAGES.na = () => {
+    report('/roes3/Default.asp', 'ROES 3.0 - ' + S.p.what);
+    const body = `<h1>${esc(S.p.what)}</h1><div class="warnbar" style="max-width:640px;margin:20px auto">The <b>${esc(S.p.what)}</b> function is not available in this simulation. The Other Commodities, Device Registration, Record Updates, Authorized Aids and Pending Actions functions are available.</div>
+      <div class="cmds center"><button class="blue" data-act="${S.pt ? 'history' : 'home'}">&lt;&lt; BACK</button></div>`;
+    return S.pt ? withSide(body) : plain(body);
+  };
+
+  // ----- Exit -----
+  PAGES.exit = () => {
+    report('/roes3/Exit.asp', 'ROES 3.0 - Session ended');
+    return plain(`<div class="who"><h2>VA Denver Acquisitions &amp; Logistics Center Remote Order/Entry System v3.0</h2><div class="bar"></div>
+      <p style="font-size:15px">You have exited ROES 3.0. You may close this window.</p>
+      <p class="note">To return, choose <b>Tools &gt; ROES 3.0</b> in CPRS for a patient, or open the ROES 3.0 desk top icon.</p>
+      <div class="cmds"><button data-act="restart">Return to ROES</button></div></div>`);
+  };
+
+  // ===================================================================
+  //  Desk top access (not tied to a CPRS patient)
+  // ===================================================================
+  PAGES.home = () => {
+    S.pt = null;
+    report('/roes3/DeskTop.asp', 'ROES 3.0 Desk Top Entry Page');
+    const a = (act, t) => `<a data-act="${act}">${t}</a>`;
+    return `<div class="home"><div class="welcome">Welcome! You are on-line with the VA Denver Acquisition &amp; Logistics Center</div>
+      <div class="big">ROES 3.0 Desk Top Entry Page</div><div class="va">VA</div>
+      <div class="links">${a('lookup', 'Patient Actions')}${a('station', 'Station Actions')}${a('pending', 'Pending Actions')}${a('contact', 'Contact Us')}${a('whatsnew', 'What\'s New in ROES III ?')}${a('faq', 'FAQ\'s')}${a('catalog', 'DALC Catalog')}${a('exit', 'Quit')}</div>
+      <div class="sim" style="position:absolute;bottom:10px;left:26px">Simulation &ndash; synthetic data. Not connected to the DALC.</div></div>`;
+  };
+  PAGES.lookup = () => {
+    S.pt = null;
+    report('/roes3/PatientLookup.asp', 'ROES 3.0 - Patient Lookup');
+    const m = S.p.matches || [];
+    return plain(`<h1>Patient Lookup<small style="font-size:11px;margin-top:6px">Entered by: ${USER.name}</small></h1>
+      <div style="margin-top:20px"><b>Enter Patient</b><br><input type="text" id="lkQ" value="${esc(S.p.q || '')}" style="width:160px"> <button data-act="lookupGo">Search</button></div>
+      <div class="note" style="margin-top:6px">Enter the last name, the last initial and last four of the SSN (e.g. H1001), or the patient's entire name (LAST,FIRST).</div>
+      ${m.length > 1 ? `<div style="margin-top:30px"><select id="lkSel" style="width:260px"><option value="">-- ${m.length} patients match --</option>${m.map(p => `<option value="${p.id}">${esc(ptName(p))}, ${p.ssn.replace(/-/g, '')}</option>`).join('')}</select></div>` : ''}
+      <div class="cmds" style="margin-top:30px"><button data-act="home">Home</button></div>`);
+  };
+  function lookupGo() {
+    const q = $('lkQ').value.trim().toUpperCase().replace(/\s+/g, ''); if (!q) return msg('Please enter a patient name or last initial and last four of the SSN.');
+    let m;
+    if (/^[A-Z]\d{4}$/.test(q)) m = PTS.filter(p => p.last[0] === q[0] && p.ssn.endsWith(q.slice(1)));
+    else if (q.includes(',')) { const [l, f] = q.split(','); m = PTS.filter(p => p.last.startsWith(l) && p.first.startsWith(f || '')); }
+    else m = PTS.filter(p => p.last.startsWith(q));
+    if (m.length > 50) return msg('More than 50 patients match. Please enter more information to narrow the search.');
+    if (!m.length) return msg(`No patients found matching "${q}".`);
+    if (m.length === 1) { S.pt = m[0]; return go('ptinfo'); }
+    go('lookup', { q, matches: m });
+  }
+  PAGES.ptinfo = () => {
+    const p = S.pt, rec = ptRec[p.id];
+    report(`/roes3/PatientInfo.asp`, 'ROES 3.0 - Patient Information');
+    return plain(`<h1>Patient Information</h1><div class="ptline"><span>Patient: ${esc(ptName(p))}</span><span>SSN: ${p.ssn}</span><span>User: ${USER.name}</span></div>
+      <div class="gray"><div><b>Date of Birth:</b>${long(p.dob)}</div><div><b>Eligibility:</b>${esc(p.elig)}</div>
+        <div><b>Address:</b>${esc(rec.addr[0])}</div><div><b>Priority Group:</b>${esc(p.pg)}</div>
+        ${rec.addr[1] ? `<div><b></b>${esc(rec.addr[1])}</div><div></div>` : ''}
+        <div><b></b>${esc(rec.addr[2])}, ${esc(rec.addr[3])} ${esc(rec.addr[4])}</div><div><b>Station of Record:</b>${STATION}</div>
+        <div><b>Phone:</b>${esc(p.phone)}</div><div><b>Authorized Aids:</b>${aids.filter(a => a.pt === p.id && a.auth).length}</div></div>
+      <table class="grid"><tr><th>Disability</th><th>Description</th><th>Eligibility Station</th><th>Remarks</th></tr>${rec.disab.map(d => `<tr><td class="c">${esc(d.code)}</td><td>${esc(DISAB_DESC[d.code] || '')}</td><td class="c">${esc(d.station)}</td><td>${esc(d.remarks)}</td></tr>`).join('')}</table>
+      <div class="cmds"><button data-act="lookup">Patient Lookup</button><button data-act="history">Order History</button></div>`);
+  };
+
+  // Station actions: station order history, station stock order
+  function stationWrap(body) {
+    return `<div class="wrap"><div class="side"><div class="sel">Select an<br>Action:</div><a data-act="stock">Station<br>Stock Order</a><a data-act="station">Station Order<br>History</a><a data-act="pending">Pending<br>Actions</a><hr><a data-act="home">Home</a><a data-act="exit">Quit</a></div><div class="main">${body}</div></div>`;
+  }
+  PAGES.station = () => {
+    S.pt = null;
+    const proc = S.p.proc !== false, pg = S.p.pg || 0, list = orders.filter(o => !o.pt && o.proc === proc).sort((a, b) => b.date.localeCompare(a.date));
+    report('/roes3/StationOrders.asp', 'ROES 3.0 - View Station Order History');
+    return stationWrap(`<h1>View Station Order History<small>ROES Station Orders - ${proc ? 'Processed' : 'Unprocessed'}</small></h1>
+      <div style="text-align:center;margin-bottom:10px"><b>Ordering Station:</b> <select style="width:220px"><option>${STATION}</option></select></div>
+      ${historyTable(list, pg)}
+      <div class="cmds center" style="gap:60px;margin-top:20px"><button class="blue" style="width:170px" data-act="sunproc">Unprocessed Orders</button><button class="blue" style="width:170px" data-act="sproc">Processed Orders</button></div>`);
+  };
+  PAGES.stock = () => {
+    S.pt = null;
+    const f = S.form && S.form.kind === 'stock' ? S.form : (S.form = Object.assign(newForm('stock'), { addr: null }));
+    const items = commodityItems(f), it = ITEMS[f.item];
+    report('/roes3/StationStockOrder.asp', 'ROES 3.0 - ROES Station Stock Order Form');
+    return stationWrap(`<h1>ROES Station Stock Order Form</h1><div class="ptline"><span>Site: ${STATION}</span><span></span><span>Entered by: ${USER.name}</span></div>
+      <div class="form fgrid"><div>
+        <div class="frow"><label>Requested By:</label><select id="fReq" style="width:170px" disabled>${opt(USERS, f.requestedBy)}</select></div>
+        <div class="frow"><label>Requestor's Service:</label><select id="fSvc" style="width:230px">${opt(SERVICES, f.service)}</select></div>
+        <div class="frow" style="margin-top:18px"><label>Commodity Group:</label><select id="fGroup" style="width:200px">${opt(Object.keys(CAT), f.group)}</select></div>
+        <div class="frow"><label>Select Item:</label><select id="fItem" style="width:200px"><option value="">${items.length ? '-- select --' : '-- use Search --'}</option>${items.map(r => `<option value="${r[0]}" ${r[0] === f.item ? 'selected' : ''}>${esc(r[0])}  ${esc(r[2])}</option>`).join('')}</select> <button data-act="toggleSearch">Search</button></div>
+        <div class="frow" id="searchRow" ${f.searchOpen ? '' : 'hidden'}><label></label><input type="text" id="fSearch" value="${esc(f.search)}" style="width:110px"><button data-act="doSearch">Search</button><button data-act="clearSearch">Clear</button></div>
+        <div class="frow" style="margin-top:14px"><label>Quantity (each):</label><select id="fQty" style="width:60px">${opt(['', ...qtyOptions(it)], f.qty)}</select>
+          <span style="color:#555;margin-left:16px">DALC Quantity on Hand:</span><input type="text" readonly style="width:70px" value="${it ? it.qoh : ''}"></div>
+        <div class="frow"><label>Remarks:</label><input type="text" id="fRemarks" value="${esc(f.remarks)}" style="width:260px"></div>
+      </div><div>
+        ${deliveryBlock(f, true)}
+        <div style="margin-top:12px"><b>Routing Symbol:</b><br><input type="text" id="fRouting" value="${esc(f.routing)}" style="width:100px"></div>
+        <div style="margin-top:8px"><b>Deliver To: (optional)</b><br><input type="text" id="fDeliverTo" value="${esc(f.deliverTo)}" style="width:240px"></div>
+      </div></div>
+      <div class="cmds"><button data-act="formExit">Exit</button><button data-act="formReset">Reset</button><span class="sp"></span><button data-act="addToOrder">Add to Order</button>${S.cart.length && S.cartKind === 'station' ? '<button data-act="summary">View Order Summary</button>' : ''}<span class="sp"></span></div>`);
+  };
+
+  // Information pages from the desk top
+  PAGES.contact = () => { report('/roes3/Contact.asp', 'ROES 3.0 - Contact Us'); return plain(`<h1>Contact the Denver Acquisition &amp; Logistics Center</h1>
+    <table class="grid" style="max-width:720px;margin:0 auto"><tr><th>Department</th><th>For</th><th>Phone (simulated)</th></tr>
+      <tr><td>CUSTOMER SERVICE</td><td>ORDER STATUS, SHIPPING, BACKORDERS</td><td class="c">555-0100</td></tr><tr><td>IRM DIVISION</td><td>ROES ACCESS / VERIFY CODES, CONNECTION PROBLEMS</td><td class="c">555-0101</td></tr>
+      <tr><td>HEARING AID SECTION</td><td>CUSTOM HEARING AIDS, REPAIRS, WARRANTY</td><td class="c">555-0102</td></tr><tr><td>COMMODITIES SECTION</td><td>BATTERIES, HOME TELEHEALTH EQUIPMENT, SPECIAL REQUESTS</td><td class="c">555-0103</td></tr>
+      <tr><td>FISCAL DIVISION</td><td>INVOICES, SHIP DATES, CERTIFICATION QUESTIONS</td><td class="c">555-0104</td></tr></table>
+    <p class="note" style="text-align:center">Phone numbers are placeholders for this simulation.</p><div class="cmds center"><button data-act="home">Home</button></div>`); };
+  PAGES.whatsnew = () => { report('/roes3/WhatsNew.asp', 'ROES 3.0 - What\'s New in ROES III'); return plain(`<h1>What's New in ROES III ?</h1><ul style="max-width:720px;margin:0 auto;font-size:13px;line-height:1.7">
+    <li>A simplified ordering process, with orders submitted immediately for real-time processing at the DALC.</li><li>Enhanced commodity ordering &ndash; several items can be ordered on one transaction from the Order Summary page.</li>
+    <li>Enhanced device registration and display/update of authorized aids.</li><li>Patient delivery addresses can be verified, edited or set as temporary for an order.</li>
+    <li>Repair orders can be entered by the provider; cost comparison for contract hearing aids.</li><li>Pending Actions lists orders needing approval, certification or an issue date.</li>
+    <li>ROES 3.0*4: eligibility is calculated automatically when ROES is opened from CPRS; e-mail approvals are no longer required.</li></ul><div class="cmds center"><button data-act="home">Home</button></div>`); };
+  PAGES.faq = () => { report('/roes3/FAQ.asp', 'ROES 3.0 - FAQ'); const q = (a, b) => `<p><b>${a}</b><br>${b}</p>`; return plain(`<h1>Frequently Asked Questions</h1><div style="max-width:760px;margin:0 auto;font-size:13px">
+    ${q('Can I use the browser Back and Forward buttons?', 'No. Use only the buttons and links on the ROES pages. They do housekeeping that keeps your order intact; the browser buttons bypass it.')}
+    ${q('Do I double-click or right-click anything?', 'No. ROES uses single clicks only and has no right-mouse-button commands.')}
+    ${q('How fast will my order ship?', 'Routine orders ship within 4 business days, Priority within 24 hours on business days, and Emergency orders are delivered within 24 hours if received by 2:00 pm MT on a business day. Emergency orders need a contact phone number.')}
+    ${q('Can I cancel a commodity order?', 'Only before it is processed for shipment. Open the order from View Order History; if the Cancel Order button is not shown, it is too late to cancel.')}
+    ${q('What date formats can I type?', 'Most formats, including T for today and T+n or T-n for today plus or minus n days.')}
+    ${q('Why does my order say BACKORDERED?', 'The quantity ordered was more than the DALC had on hand. The rest ships when stock arrives.')}
+    ${q('What does registering a device do?', 'It records the device on the patient\'s record and authorizes the patient to receive batteries and repair services from the DALC.')}
+    </div><div class="cmds center"><button data-act="home">Home</button></div>`); };
+  PAGES.catalog = () => { report('/roes3/Catalog.asp', 'ROES 3.0 - DALC Catalog'); return plain(`<h1>DALC Catalog <small style="font-size:11px">(simulated items and prices; prosthetic socks not listed)</small></h1>
+    ${Object.entries(CAT).filter(([g]) => g !== 'Prosthetic Socks').map(([g, l]) => `<div class="tblbox"><div class="cap">${esc(g)}</div><table class="grid"><tr><th>Item</th><th>Make</th><th>Description</th><th>HCPCS</th><th>Unit Price</th><th>Order Multiple</th></tr>
+      ${l.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td class="c">${esc(r[3])}</td><td class="r">${money(r[4])}</td><td class="c">${r[5]}</td></tr>`).join('')}</table></div>`).join('')}
+    <div class="cmds center"><button data-act="home">Home</button></div>`); };
+
+  // ===================================================================
+  //  Render + actions
+  // ===================================================================
+  function render() { $('root').innerHTML = (PAGES[S.page] || PAGES.home)(); }
+  function start() {
+    if (!authed()) return go('login');
+    if (S.mode === 'cprs' && S.pt) go('history'); else go('home');
+  }
+
+  // Live updates on the order forms
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (S.form && ['fGroup', 'fItem'].includes(t.id)) { readForm(); if (t.id === 'fGroup') { S.form.item = ''; S.form.qty = ''; S.form.search = ''; } else S.form.qty = ''; render(); }
+    if (S.form && t.name === 'deliv') readForm();
+    if (S.dev && t.id === 'dMake') { readDev(); S.dev.model = ''; S.dev.mq = ''; render(); }
+    if (S.dev && t.id === 'dModel') { readDev(); const m = DEVMAKES[S.dev.make]?.find(x => x[0] === S.dev.model); if (m && m[2]) { S.dev.battery = m[2]; render(); } }
+    if (t.id === 'lkSel' && t.value) { S.pt = byId[t.value]; go('ptinfo'); }
+    // Custom hearing aid detail: certifying the first line checks the others (they can be unchecked)
+    if (t.classList.contains('chaCert') && t.checked && t === document.querySelector('.chaCert:not(:disabled)')) document.querySelectorAll('.chaCert:not(:disabled)').forEach(c => { c.checked = true; });
+  });
+  // An issue date typed on one line is carried to the next line when that field is entered
+  document.addEventListener('focusin', e => {
+    const t = e.target; if (!t.classList || !t.classList.contains('chaIssue') || t.value) return;
+    const prev = [...document.querySelectorAll('.chaIssue')].filter(x => x !== t && x.value.trim()); if (prev.length) t.value = prev[prev.length - 1].value;
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (e.target.id === 'lkQ') { e.preventDefault(); lookupGo(); }
+    if (e.target.id === 'fSearch') { e.preventDefault(); act('doSearch', e.target); }
+    if (S.page === 'login' && e.target.closest('.who')) { e.preventDefault(); loginSubmit(); }
+  });
+  document.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (!el || el.disabled || el.classList.contains('dis')) return; e.preventDefault(); act(el.dataset.act, el); });
+
+  async function leaveOrder() {
+    const pending = (S.cart.length && !S.submitted) || (S.devCart && S.devCart.length && !S.devDone);
+    if (pending && !await msg('You have not submitted your order – click ok to exit anyway!', { confirm: true })) return false;
+    S.cart = []; S.devCart = null; S.submitted = false; S.devDone = false; S.form = null; S.dev = null; S.recDraft = null;
+    return true;
+  }
+  const ORDER_PAGES = ['commodity', 'special', 'summary', 'address', 'devreg', 'devsum', 'stock'];
+
+  async function act(a, el) {
+    if (a.startsWith('na:')) { if (ORDER_PAGES.includes(S.page) && !await leaveOrder()) return; return go('na', { what: a.slice(3) }); }
+    switch (a) {
+      case 'loginSubmit': return loginSubmit();
+      case 'restart': return start();
+      case 'exit':
+        if (ORDER_PAGES.includes(S.page) && !await leaveOrder()) return;
+        go('exit'); try { parent.postMessage({ type: 'roes-exit' }, '*'); } catch { } return;
+      case 'history': if (ORDER_PAGES.includes(S.page) && !await leaveOrder()) return; S.recDraft = null; return go('history', { proc: true, pg: 0 });
+      case 'proc': return go('history', { proc: true, pg: 0 });
+      case 'unproc': return go('history', { proc: false, pg: 0 });
+      case 'hpage': { const n = ptOrders(S.pt.id).filter(o => o.proc === (S.p.proc !== false)).length, pg = Math.min(Math.max(0, (S.p.pg || 0) + +el.dataset.d), Math.max(0, Math.ceil(n / PER) - 1)); return go('history', { ...S.p, pg }); }
+      case 'detail': return go('detail', { no: el.dataset.no, from: S.page, fromP: S.p });
+      case 'back': return S.p.from ? go(S.p.from, S.p.fromP) : go(S.pt ? 'history' : 'station');
+      case 'cancelOrder': return cancelOrder(el.dataset.no);
+      case 'chaSubmit': return chaSubmit();
+      case 'printForm': return msg('The vendor order form would print here. Printing order forms is not part of this simulation.', { icon: 'info' });
+      case 'cal': {
+        const target = el.dataset.for.startsWith('chaIssue') ? document.querySelector(`.chaIssue[data-i="${el.dataset.for.slice(8)}"]`) : $(el.dataset.for);
+        const pick = document.createElement('input'); pick.type = 'date'; pick.style.cssText = 'position:fixed;opacity:0;pointer-events:none;left:' + el.getBoundingClientRect().left + 'px;top:' + el.getBoundingClientRect().bottom + 'px';
+        const d0 = parseDate(target.value); pick.value = iso(d0 || TODAY); document.body.appendChild(pick);
+        pick.onchange = () => { if (pick.value) target.value = short(pick.value); pick.remove(); }; pick.onblur = () => setTimeout(() => pick.remove(), 300);
+        try { pick.showPicker(); } catch { pick.remove(); msg('Type the date instead (for example T, T-3 or 06/29/2026).', { icon: 'info' }); }
+        return;
+      }
+      // Commodity / special / stock forms
+      case 'commodity': if (ORDER_PAGES.includes(S.page) && S.cartKind !== 'pt' && !await leaveOrder()) return; S.form = null; return go('commodity');
+      case 'special': readForm(); { const addr = S.form.addr; S.form = Object.assign(newForm('special'), { addr, group: S.form.group, requestedBy: S.form.requestedBy, service: S.form.service, disab: S.form.disab }); } return go('special');
+      case 'toCommodity': { const addr = S.form.addr; S.form = Object.assign(newForm('commodity'), { addr }); } return go('commodity');
+      case 'toggleSearch': readForm(); S.form.searchOpen = !S.form.searchOpen; render(); if (S.form.searchOpen) $('fSearch').focus(); return;
+      case 'doSearch': {
+        readForm(); const q = S.form.search; if (!q) return msg('Enter one or more characters of the item to search for.');
+        const n = (CAT[S.form.group] || []).filter(r => r[0].startsWith(q.toUpperCase()) || r[2].includes(q.toUpperCase())).length;
+        if (n > 100) return msg('More than 100 items match. Please enter additional characters to narrow your search.');
+        if (!n) return msg(`No items in ${S.form.group} begin with "${q}".`);
+        S.form.item = ''; S.form.qty = ''; render(); return;
+      }
+      case 'clearSearch': readForm(); S.form.search = ''; S.form.item = ''; render(); return;
+      case 'formReset': { const k = S.form.kind, addr = S.form.addr; S.form = Object.assign(newForm(k), { addr: k === 'stock' ? null : addr }); render(); return; }
+      case 'formExit': {
+        if (!await leaveOrder()) return;
+        return S.cartKind === 'station' || S.page === 'stock' ? go('station') : go('history', { proc: true });
+      }
+      case 'addToOrder': return addToOrder();
+      case 'summary': readForm(); return go('summary');
+      case 'addAnother': S.form = null; return go(S.cartKind === 'station' ? 'stock' : 'commodity');
+      case 'cartDel': S.cart.splice(+el.dataset.i, 1); return render();
+      case 'cartEdit': {
+        const l = S.cart[+el.dataset.i], st = S.cartKind === 'station', kind = st ? 'stock' : l.special ? 'special' : 'commodity';
+        S.form = Object.assign(newForm(kind), { requestedBy: l.requestedBy, service: l.service, disab: l.disab, group: l.group, item: l.special ? '' : l.item, qty: String(l.qty), trans: l.trans[0] + l.trans.slice(1).toLowerCase(), deliv: l.deliv[0] + l.deliv.slice(1).toLowerCase(), phone: l.phone, make: l.special ? l.make : '', desc: l.special ? l.desc : '', addr: l.addr, remarks: l.remarks || '', routing: l.routing || '', deliverTo: l.deliverTo || '', editIdx: +el.dataset.i });
+        return go(kind);
+      }
+      case 'cartSubmit': return cartSubmit();
+      case 'address': readForm(); return go('address');
+      case 'stationAddr': return msg('The station delivery address is recorded in the Institution file at the DALC and cannot be edited here. Use Routing Symbol and Deliver To for this order.', { icon: 'info' });
+      case 'addrBack': return go(S.form.kind);
+      case 'addrReset': S.form.addr = null; return render();
+      case 'addrAccept': return addrAccept();
+      // Device registration
+      case 'devreg': if (S.page !== 'devsum' && ORDER_PAGES.includes(S.page) && !await leaveOrder()) return; S.dev = null; return go('devreg');
+      case 'devsum': readDev(); return go('devsum');
+      case 'devSearch': {
+        readDev(); if (!S.dev.make) return msg('Select a Make first.');
+        const q = prompt('Enter one or more characters of the model you are looking for:', S.dev.mq || ''); if (q === null) return;
+        S.dev.mq = q.trim(); S.dev.model = ''; render(); return;
+      }
+      case 'devAdd': return devAdd();
+      case 'devReset': S.dev = null; return render();
+      case 'devDel': S.devCart.splice(+el.dataset.i, 1); return render();
+      case 'devSubmit': return devSubmit();
+      case 'devExit': if (!await leaveOrder()) return; return go('history', { proc: true });
+      // Record updates / aids
+      case 'record': S.recDraft = null; return go('record');
+      case 'recToggle': { readRec(); const x = S.recDraft.aids.find(y => y.serial === el.dataset.s); x.auth = !x.auth; return render(); }
+      case 'recShowUn': readRec(); S.recDraft.showUn = !S.recDraft.showUn; return render();
+      case 'recReset': S.recDraft = null; return render();
+      case 'recSubmit': return recSubmit();
+      case 'recExit': S.recDraft = null; return go('history', { proc: true });
+      case 'aids': S.aidsView = 'auth'; return go('aids');
+      case 'aidsToggle': S.aidsView = S.aidsView === 'un' ? 'auth' : 'un'; return render();
+      case 'pending': if (ORDER_PAGES.includes(S.page) && !await leaveOrder()) return; return go('pending');
+      // Desk top
+      case 'home': if (ORDER_PAGES.includes(S.page) && !await leaveOrder()) return; return go('home');
+      case 'lookup': return go('lookup');
+      case 'lookupGo': return lookupGo();
+      case 'station': if (ORDER_PAGES.includes(S.page) && !await leaveOrder()) return; return go('station', { proc: true });
+      case 'sproc': return go('station', { proc: true });
+      case 'sunproc': return go('station', { proc: false });
+      case 'stock': if (S.page !== 'summary' && ORDER_PAGES.includes(S.page) && !await leaveOrder()) return; if (S.cartKind !== 'station') S.cart = []; S.cartKind = 'station'; S.form = null; return go('stock');
+      case 'contact': case 'whatsnew': case 'faq': case 'catalog': return go(a);
+    }
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

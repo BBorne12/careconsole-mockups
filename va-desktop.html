@@ -219,6 +219,9 @@
 
   /* ---------- Oracle Health PowerChart (Cerner) look-alike ---------- */
   .ico-cerner { background: linear-gradient(#c74634, #9e2f22); font-size: 9px; letter-spacing: .2px; border: 1px solid #7a2117; }
+  .ico-roes { background: linear-gradient(#2f6fc4, #173f80); font-size: 8.5px; letter-spacing: .2px; border: 1px solid #0f2d5e; }
+  .win.ie .bTabs { background: #dbe6f4; }
+  .win.ie .fav.roes { background: #173f80; }
   .cerner { font-family: "Segoe UI", Arial, sans-serif; font-size: 12px; color: #1f1f1f; background: #f4f5f7; }
   .cerner .titlebar { background: #fff; }
   .pcMenu { height: 22px; flex: none; display: flex; align-items: center; background: #f0f0f0; border-bottom: 1px solid #d6d6d6; font-size: 12px; }
@@ -324,6 +327,7 @@
 <div class="icons">
   <div class="dicon" data-open="cprs"><div class="ico appIco ico-cprs">CPRS</div>CPRS</div>
   <div class="dicon" data-open="cerner"><div class="ico appIco ico-cerner">PC</div>PowerChart</div>
+  <div class="dicon" data-roes><div class="ico appIco ico-roes">ROES</div>ROES 3.0</div>
   <div class="dicon" data-open="browser" data-url="worklist.html"><div class="ico appIco ico-browser">e</div>CareConsole</div>
 </div>
 
@@ -353,7 +357,7 @@
     <div><span>View</span><div class="cDrop"><div data-cmd="tab:cover">Cover Sheet</div><div data-cmd="tab:problems">Problem List</div><div data-cmd="tab:meds">Medications</div><div data-cmd="tab:orders">Orders</div><div data-cmd="tab:notes">Progress Notes</div><div data-cmd="tab:consults">Consults</div><div data-cmd="tab:surgery">Surgery</div><div data-cmd="tab:dc">Discharge Summaries</div><div data-cmd="tab:labs">Laboratory</div><div data-cmd="tab:reports">Reports</div><hr><div class="dis">Demographics...</div><div class="dis">Postings...</div></div></div>
     <div><span>Action</span><div class="cDrop" id="actionMenu"><div data-cmd="newNote">New Progress Note...</div><div data-cmd="addendum" class="dis">Make Addendum...</div><hr><div data-cmd="saveNote">Save without Signature</div><div data-cmd="signNote">Sign Note Now...</div><hr><div data-cmd="deleteNote">Delete Progress Note...</div><div data-cmd="editNote">Edit Progress Note...</div></div></div>
     <div><span>Options</span><div class="cDrop"><div class="dis">Edit Shared Templates</div><div class="dis">Create New Template</div></div></div>
-    <div><span>Tools</span><div class="cDrop"><div data-cmd="openCC">CareConsole (Home Telehealth)</div><div class="dis">VistA Imaging Display</div><div class="dis">Clinical Reminders Manager</div></div></div>
+    <div><span>Tools</span><div class="cDrop"><div data-cmd="openCC">CareConsole (Home Telehealth)</div><div data-cmd="openROES">ROES 3.0</div><div class="dis">VistA Imaging Display</div><div class="dis">Clinical Reminders Manager</div></div></div>
     <div><span>Help</span><div class="cDrop"><div class="dis">Contents</div><hr><div data-cmd="about">About CPRS...</div></div></div>
   </div>
   <div class="cHead">
@@ -410,6 +414,19 @@
   <div class="pcModalBack" id="pcModal"></div>
   <div class="grip"></div><div class="rz n" data-rz="n"></div><div class="rz s" data-rz="s"></div><div class="rz e" data-rz="e"></div><div class="rz w" data-rz="w"></div><div class="rz ne" data-rz="ne"></div><div class="rz nw" data-rz="nw"></div><div class="rz se" data-rz="se"></div><div class="rz sw" data-rz="sw"></div>
 </div>
+<!-- ROES 3.0 (DALC Remote Order Entry System), opened from CPRS Tools or the desktop icon -->
+<div class="win browser ie hidden" id="win-roes" style="left:220px;top:70px;width:1100px;height:700px">
+  <div class="titlebar" data-drag><div class="tIco appIco ico-roes">ROES</div><div class="tText" id="roesTitle">ROES 3.0</div>
+    <div class="tBtns"><button data-min title="Minimize">&#8211;</button><button data-max title="Maximize">&#9744;</button><button class="x" data-close title="Close">&#10005;</button></div></div>
+  <div class="bTabs"><div class="bTab"><div class="fav roes">R</div><span id="roesTab">ROES 3.0</span><span style="color:#888">&#10005;</span></div></div>
+  <div class="bBar">
+    <button id="roesBack" title="Back">&#8592;</button><button id="roesFwd" title="Forward">&#8594;</button><button id="roesReload" title="Refresh">&#8635;</button>
+    <div class="addr"><span class="lock">&#128274;</span><span><span class="host">vaww.roes.dalc.va.example</span><span class="path" id="roesPath">/roes3/Login.asp</span></span></div>
+    <button title="Favorites">&#9734;</button><button title="Tools">&#9881;</button>
+  </div>
+  <div class="bView"><iframe id="roesFrame" title="ROES 3.0"></iframe></div>
+  <div class="grip"></div><div class="rz n" data-rz="n"></div><div class="rz s" data-rz="s"></div><div class="rz e" data-rz="e"></div><div class="rz w" data-rz="w"></div><div class="rz ne" data-rz="ne"></div><div class="rz nw" data-rz="nw"></div><div class="rz se" data-rz="se"></div><div class="rz sw" data-rz="sw"></div>
+</div>
 <div class="ctx" id="ctx"></div>
 <div class="dragShield" id="shield"></div>
 
@@ -420,6 +437,7 @@
     <div class="app" data-open="browser"><div class="appIco ico-browser">e</div>Browser</div>
     <div class="app" data-open="cprs"><div class="appIco ico-cprs">CPRS</div>CPRS</div>
     <div class="app" data-open="cerner"><div class="appIco ico-cerner">PC</div>PowerChart</div>
+    <div class="app" data-roes><div class="appIco ico-roes">ROES</div>ROES 3.0</div>
     <div class="app" data-open="browser" data-url="worklist.html"><div class="appIco" style="background:#004C97;font-size:11px">CC</div>CareConsole</div>
     <div class="app" data-open="browser" data-url="patient-analysis.html"><div class="appIco" style="background:#0b6a8a;font-size:11px">PA</div>Patient Analysis</div>
   </div>
@@ -432,6 +450,7 @@
   <button class="tbBtn running" id="tb-browser"><div class="appIco ico-browser">e</div><span class="tbTip" id="tbTipBrowser">CareConsole - Browser</span></button>
   <button class="tbBtn running" id="tb-cprs"><div class="appIco ico-cprs">CPRS</div><span class="tbTip">VistA CPRS</span></button>
   <button class="tbBtn running" id="tb-cerner"><div class="appIco ico-cerner">PC</div><span class="tbTip">PowerChart (Oracle Health EHR)</span></button>
+  <button class="tbBtn" id="tb-roes"><div class="appIco ico-roes">ROES</div><span class="tbTip" id="roesTip">ROES 3.0</span></button>
   <div class="tray"><span>&#8963;</span><span>&#128246;</span><span>&#128266;</span><div class="clock"><div id="clock"></div><div>6/29/2026</div></div></div>
 </div>
 
@@ -456,7 +475,8 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   //  Window manager
   // ===================================================================
   let z = 10;
-  const wins = { browser: $('win-browser'), cprs: $('win-cprs'), cerner: $('win-cerner') };
+  const wins = { browser: $('win-browser'), cprs: $('win-cprs'), cerner: $('win-cerner'), roes: $('win-roes') };
+  wins.roes.dataset.closed = '1';
   function focusWin(name) {
     Object.entries(wins).forEach(([n, w]) => { w.classList.toggle('active', n === name); });
     wins[name].style.zIndex = ++z;
@@ -534,10 +554,10 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   const tick = () => { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
   tick(); setInterval(tick, 15000);
   // Maximize both windows on small screens
-  if (innerWidth < 1100) { wins.browser.classList.add('max'); wins.cprs.classList.add('max'); wins.cerner.classList.add('max'); }
+  if (innerWidth < 1100) { wins.browser.classList.add('max'); wins.cprs.classList.add('max'); wins.cerner.classList.add('max'); wins.roes.classList.add('max'); }
   else {
     const fit = (w, l, t) => { w.style.left = l + 'px'; w.style.top = t + 'px'; w.style.width = Math.min(1500, innerWidth - l - 30) + 'px'; w.style.height = (innerHeight - 44 - t - 16) + 'px'; };
-    fit(wins.browser, 100, 12); fit(wins.cprs, 130, 30); fit(wins.cerner, 160, 48);
+    fit(wins.browser, 100, 12); fit(wins.cprs, 130, 30); fit(wins.cerner, 160, 48); fit(wins.roes, 190, 66);
   }
 
   // ===================================================================
@@ -558,6 +578,23 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   $('bFwd').onclick = () => { try { frame.contentWindow.history.forward(); } catch { } };
   $('bReload').onclick = () => { try { frame.contentWindow.location.reload(); } catch { frame.src = frame.src; } };
   document.querySelectorAll('[data-nav]').forEach(a => a.onclick = () => navigate(a.dataset.nav));
+
+  // ===================================================================
+  //  ROES 3.0: CPRS Tools > ROES 3.0 opens it for the selected patient;
+  //  the desktop icon opens the Desk Top Entry Page
+  // ===================================================================
+  const roesFrame = $('roesFrame');
+  function openRoes(ptId) {
+    $('startMenu').classList.remove('open');
+    roesFrame.src = 'roes.html' + (ptId ? '?pt=' + encodeURIComponent(ptId) : '');
+    showWin('roes');
+  }
+  document.querySelectorAll('[data-roes]').forEach(el => el.addEventListener(el.classList.contains('dicon') ? 'dblclick' : 'click', () => openRoes(null)));
+  $('tb-roes').addEventListener('click', () => { if (!roesFrame.src) roesFrame.src = 'roes.html'; }, true);
+  const roesShow = (path, title) => { $('roesPath').textContent = path; $('roesTab').textContent = title; $('roesTitle').textContent = title + ' - Internet Explorer'; $('roesTip').textContent = $('roesTitle').textContent; };
+  addEventListener('message', e => { if (e.source === roesFrame.contentWindow && e.data && e.data.type === 'roes-nav') roesShow(e.data.path, e.data.title); });
+  $('roesBack').onclick = $('roesFwd').onclick = () => { try { roesFrame.contentWindow.roesBack(); } catch { } };
+  $('roesReload').onclick = () => { try { roesFrame.contentWindow.location.reload(); } catch { roesFrame.src = roesFrame.src; } };
   if (location.protocol === 'data:' || location.protocol === 'about:') $('blocked').style.display = 'flex';
   // CareConsole loads only after the PIN is entered (see the lock screen below)
 
@@ -763,6 +800,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       case 'print': return alertDlg('Print', 'Printing is not part of this mockup.');
       case 'about': return alertDlg('About CPRS', 'CPRS (Computerized Patient Record System)\nMockup for demonstration only. Not connected to VistA.\nAll patients and data are synthetic.');
       case 'openCC': navigate('worklist.html'); showWin('browser'); return;
+      case 'openROES': if (!pt) return alertDlg('ROES 3.0', 'Select a patient before opening ROES.'); return openRoes(pt.id);
       case 'newNote': if (!pt || editing) return; if (tab !== 'notes') setTab('notes'); return titleDialog();
       case 'editNote': { const n = ptNotes().find(v => v.id === selNote); if (n && !n.signed) { editing = n.id; renderNotes(); } return; }
       case 'saveNote': if (!editing) return; finishEdit(false); return;
