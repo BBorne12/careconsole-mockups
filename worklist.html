@@ -550,7 +550,13 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       'VHA WM English 052218', 'VHA WM English 093019', 'VHA WM Spanish 052218', 'VHA WM Spanish 093019']],
     ['Help', ['Customer Service: (877) 664-9848', 'Customer Support Email', 'Learning Center']],
   ];
-  const LINKS = { 'My Work List': 'worklist.html', 'Patient Analysis Page': 'patient-analysis.html' };
+  const LINKS = Object.assign({ 'My Work List': 'worklist.html', 'Patient Analysis Page': 'patient-analysis.html' }, { 'Enroll a Patient': 'careconsole.html#pending', 'Patient Summary Page': 'careconsole.html#summary', 'Patient Record': 'careconsole.html#record', 'Manual Enrollment': 'careconsole.html#registration', 'Query Reports': 'careconsole.html#query?r=245',
+    'Patient Contact Report': 'careconsole.html#query?r=245', 'Weight Management Report': 'careconsole.html#query?r=246', 'Blood Glucose Report': 'careconsole.html#query?r=247', 'Non-Adherence Call Report': 'careconsole.html#query?r=248', 'Monthly Compliance Report': 'careconsole.html#query?r=249',
+    'Care Coordinator Enrollment/Census Report': 'careconsole.html#query?r=250', 'Red Alert Report': 'careconsole.html#query?r=251', 'Task Report': 'careconsole.html#tasks', 'Pending Enrollment Report': 'careconsole.html#pending', 'Status Report': 'careconsole.html#status', 'Non Responder Report': 'careconsole.html#nonresponder',
+    'Health Data Analysis': 'careconsole.html#hda', 'Create New User': 'careconsole.html#newuser', 'Manage Users': 'careconsole.html#users', 'Manage VISN/Site': 'careconsole.html#visnsite', 'Device Management': 'careconsole.html#devices', 'Manage Announcements': 'careconsole.html#announcements', 'Cross Coverage': 'careconsole.html#crosscoverage' });
+  // Library and Help items open on careconsole.html
+  document.addEventListener('click', e => { const a = e.target.closest('#menuNav .subMenu a'); if (!a || a.getAttribute('href') || a.parentElement.classList.contains('hasSub')) return;
+    const t = a.textContent.trim(); if (/^(COG|Cog|VHA)/.test(t)) location.href = 'careconsole.html#library?doc=' + encodeURIComponent(t); });
   const subMenu = (items, cls = '') => `<ul class="subMenu ${cls}" role="menu">${items.map(it => Array.isArray(it)
     ? `<li class="hasSub" role="none"><a role="menuitem" aria-haspopup="true">${esc(it[0])}</a>${subMenu(it[1])}</li>`
     : `<li role="none"><a role="menuitem"${LINKS[it] ? ` href="${LINKS[it]}"` : ''}>${esc(it)}</a></li>`).join('')}</ul>`;
@@ -566,6 +572,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   // Images
   document.querySelectorAll('[data-img]').forEach(i => i.src = CC_IMG[i.dataset.img]);
   $('imgLogo').src = CC_IMG.logo;
+  $('imgLogo').onclick = () => location.href = 'careconsole.html#dashboard';
   const imgUrl = n => `url(${CC_IMG[n]})`;
 
   const patients = CC_RAW.map(p => ({ ...p, ...PROGRAMS[p.prog], ...META[p.id], cc: 'Borne, Ben', name: `${p.last}, ${p.first}` }));

@@ -345,7 +345,7 @@
     <div class="addr"><span class="lock">&#128274;</span><span><span class="host">careconsole.amchealth.example</span><span class="path" id="addrPath"></span></span></div>
     <button title="Favorites">&#9734;</button><button title="Settings and more">&#8943;</button>
   </div>
-  <div class="bFavs"><a data-nav="worklist.html"><span class="fav">CC</span>CareConsole Work List</a><a data-nav="patient-analysis.html"><span class="fav">CC</span>Patient Analysis</a><a><span class="fav" style="background:#888">VA</span>VA Intranet</a></div>
+  <div class="bFavs"><a data-nav="worklist.html"><span class="fav">CC</span>CareConsole Work List</a><a data-nav="patient-analysis.html"><span class="fav">CC</span>Patient Analysis</a><a data-nav="careconsole.html#dashboard"><span class="fav">CC</span>CareConsole Dashboard</a><a><span class="fav" style="background:#888">VA</span>VA Intranet</a></div>
   <div class="bView"><iframe id="frame" title="CareConsole" allow="clipboard-read; clipboard-write"></iframe>
     <div class="blocked" id="blocked">This browser view loads the CareConsole mockup pages from the same folder.<br>Open this desktop through the local server (or directly in a browser) to see them.</div></div>
   <div class="grip"></div><div class="rz n" data-rz="n"></div><div class="rz s" data-rz="s"></div><div class="rz e" data-rz="e"></div><div class="rz w" data-rz="w"></div><div class="rz ne" data-rz="ne"></div><div class="rz nw" data-rz="nw"></div><div class="rz se" data-rz="se"></div><div class="rz sw" data-rz="sw"></div>
@@ -452,6 +452,7 @@
     <div class="app" data-vista><div class="appIco ico-vista">&gt;_</div>VistA</div>
     <div class="app" data-open="browser" data-url="worklist.html"><div class="appIco" style="background:#004C97;font-size:11px">CC</div>CareConsole</div>
     <div class="app" data-open="browser" data-url="patient-analysis.html"><div class="appIco" style="background:#0b6a8a;font-size:11px">PA</div>Patient Analysis</div>
+    <div class="app" data-open="browser" data-url="careconsole.html#dashboard"><div class="appIco" style="background:#004C97;font-size:11px">CD</div>CareConsole Dashboard</div>
   </div>
   <div class="user" style="display:flex;justify-content:space-between;align-items:center"><span>&#128100; Borne, Ben (VHA Care Coordinator)</span><span id="btnLock" style="cursor:pointer;padding:4px 8px;border-radius:4px" title="Lock">&#128274; Lock</span></div>
 </div>
@@ -577,7 +578,15 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   //  Browser: shows the CareConsole mockup pages from this folder
   // ===================================================================
   const frame = $('frame');
-  const PATHS = { 'worklist.html': '/ViewPatientWorkList_New.aspx', 'patient-analysis.html': '/PatientAnalysis.aspx' };
+  const PATHS = { 'worklist.html': '/ViewPatientWorkList_New.aspx', 'patient-analysis.html': '/PatientAnalysis.aspx', 'careconsole.html': '/LandingPage.aspx' };
+  // careconsole.html reports its own page title and address as the user moves between its pages
+  addEventListener('message', e => {
+    if (e.source !== frame.contentWindow || !e.data || e.data.type !== 'cc-nav') return;
+    $('tabTitle').textContent = e.data.title.replace(' - CareConsole® Care Coordinator Web Viewer', ' - CareConsole');
+    $('bTitle').textContent = $('tabTitle').textContent + ' - Browser';
+    $('tbTipBrowser').textContent = $('bTitle').textContent;
+    $('addrPath').textContent = e.data.path;
+  });
   function navigate(url) { frame.src = url; }
   frame.addEventListener('load', () => {
     let title = 'CareConsole', file = '';
@@ -586,6 +595,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     $('bTitle').textContent = $('tabTitle').textContent + ' - Browser';
     $('tbTipBrowser').textContent = $('bTitle').textContent;
     $('addrPath').textContent = PATHS[file] || '/' + file;
+    try { const n = frame.contentWindow.ccNav; if (n) $('addrPath').textContent = n.path; } catch { }
   });
   $('bBack').onclick = () => { try { frame.contentWindow.history.back(); } catch { } };
   $('bFwd').onclick = () => { try { frame.contentWindow.history.forward(); } catch { } };
