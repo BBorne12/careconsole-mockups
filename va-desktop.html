@@ -619,10 +619,10 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   $('roesBack').onclick = $('roesFwd').onclick = () => { try { roesFrame.contentWindow.roesBack(); } catch { } };
   // VistA terminal: one session per window; the frame keeps running while minimized
   const vistaFrame = $('vistaFrame');
-  function openVista() { $('startMenu').classList.remove('open'); if (!vistaFrame.src || wins.vista.dataset.closed === '1') vistaFrame.src = 'vista.html'; showWin('vista'); setTimeout(() => { try { vistaFrame.contentWindow.focus(); vistaFrame.contentDocument.getElementById('term').focus(); } catch { } }, 60); }
+  function openVista() { $('startMenu').classList.remove('open'); if (!vistaFrame.src || wins.vista.dataset.closed === '1') vistaFrame.src = 'vista.html'; showWin('vista'); setTimeout(() => { try { vistaFrame.contentWindow.focus(); vistaFrame.contentDocument.getElementById('kb').focus(); } catch { } }, 60); }
   document.querySelectorAll('[data-vista]').forEach(el => el.addEventListener(el.classList.contains('dicon') ? 'dblclick' : 'click', openVista));
   $('tb-vista').addEventListener('click', () => { if (!vistaFrame.src) vistaFrame.src = 'vista.html'; }, true);
-  wins.vista.addEventListener('mouseup', e => { if (!e.target.closest('.titlebar')) try { vistaFrame.contentWindow.focus(); } catch { } });
+  wins.vista.addEventListener('mouseup', () => { try { vistaFrame.contentWindow.focus(); vistaFrame.contentDocument.getElementById('kb').focus(); } catch { } });
   $('roesReload').onclick = () => { try { roesFrame.contentWindow.location.reload(); } catch { roesFrame.src = roesFrame.src; } };
   if (location.protocol === 'data:' || location.protocol === 'about:') $('blocked').style.display = 'flex';
   // CareConsole loads only after the PIN is entered (see the lock screen below)

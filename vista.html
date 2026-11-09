@@ -25,13 +25,15 @@
   #scr .dim { color: #8a8a8a; }
   #scr .grn { color: #6fdc6f; }
   #scr .cur { background: #c8c8c8; color: #000; animation: blink 1s steps(1) infinite; }
-  #term:not(:focus-within) #scr .cur, #term:not(:focus) #scr .cur { animation: none; background: transparent; outline: 1px solid #888; }
+  #term:not(.focused) #scr .cur { animation: none; background: transparent; outline: 1px solid #888; }
+  #kb { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; resize: none; overflow: hidden; }
   @keyframes blink { 50% { background: transparent; color: inherit; } }
   ::selection { background: #3a5f9a; color: #fff; }
 </style>
 </head>
 <body>
-<div id="term" tabindex="0"><pre id="scr"></pre></div>
+<div id="term" tabindex="-1"><pre id="scr"></pre></div>
+<textarea id="kb" aria-label="Terminal input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
 <script>
 (() => {
   'use strict';
@@ -75,6 +77,7 @@
   let inbuf = '', wake = null;
   function keys(s) { inbuf += s; if (wake) { const f = wake; wake = null; f(); } }
   window.vistaKeys = keys; // lets the desktop (and tests) type into the session
+  // echo: true = show what is typed, 'mask' = show * for each character (codes), false = nothing
   async function readLine(echo = true) {
     let s = '';
     for (;;) {
@@ -82,26 +85,38 @@
       const ch = inbuf[0]; inbuf = inbuf.slice(1);
       if (ch === '\r' || ch === '\n') { w('\n'); return s; }
       if (ch === '\b') { if (s) { s = s.slice(0, -1); if (echo) backspace(); } continue; }
-      if (ch >= ' ' && s.length < 245) { s += ch; if (echo) w(ch); }
+      if (ch >= ' ' && s.length < 245) { s += ch; if (echo) w(echo === 'mask' ? '*' : ch); }
     }
   }
-  $('term').addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') return; if (e.ctrlKey && e.key.toLowerCase() === 'c' && getSelection().toString()) return; if (e.ctrlKey && e.key.toLowerCase() === 'c') { e.preventDefault(); keys('^\r'); } return; }
-    if (e.key === 'Enter') { e.preventDefault(); keys('\r'); }
+  // Keyboard input goes through a hidden text box, so every way of typing works:
+  // physical keys, paste, autofill, on-screen keyboards and input methods.
+  const kb = $('kb');
+  const focusKb = () => { if (!getSelection().toString()) kb.focus({ preventScroll: true }); };
+  kb.addEventListener('keydown', e => {
+    if (e.isComposing) return;
+    if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'c' && !getSelection().toString()) { e.preventDefault(); keys('^\r'); return; }
+    if (e.key === 'Enter') { e.preventDefault(); kb.value = ''; keys('\r'); }
     else if (e.key === 'Backspace') { e.preventDefault(); keys('\b'); }
     else if (e.key === 'Tab') { e.preventDefault(); }
-    else if (e.key.length === 1) { e.preventDefault(); keys(e.key); }
   });
-  $('term').addEventListener('paste', e => { e.preventDefault(); keys((e.clipboardData.getData('text') || '').replace(/\r?\n/g, '\r')); });
-  $('term').addEventListener('mouseup', () => { if (!getSelection().toString()) $('term').focus(); });
-  window.addEventListener('focus', () => $('term').focus());
+  kb.addEventListener('input', e => {
+    if (e.isComposing) return;
+    const v = kb.value; kb.value = '';
+    if (v) keys(v.replace(/\r?\n/g, '\r'));
+  });
+  kb.addEventListener('compositionend', () => { const v = kb.value; kb.value = ''; if (v) keys(v); });
+  kb.addEventListener('focus', () => $('term').classList.add('focused'));
+  kb.addEventListener('blur', () => $('term').classList.remove('focused'));
+  $('term').addEventListener('mouseup', focusKb);
+  $('term').addEventListener('focus', focusKb);
+  window.addEventListener('focus', focusKb);
   function fit() { const px = Math.max(11, Math.min(19, (innerWidth - 24) / 80 / 0.55)); $('scr').style.fontSize = px.toFixed(1) + 'px'; }
   addEventListener('resize', fit); fit();
 
   // ask(): VistA-style prompt. "PROMPT: DEFAULT// "  returns '' / text / '^'
   async function ask(prompt, o = {}) {
     w(prompt + (o.def != null && o.def !== '' ? `${o.def}// ` : ''));
-    let a = (await readLine(!o.secret)).trim();
+    let a = (await readLine(o.secret ? 'mask' : true)).trim();
     if (a === '' && o.def != null) a = String(o.def);
     return a;
   }
@@ -874,7 +889,7 @@
     await readLine(false); return session();
   }
 
-  $('term').focus();
+  focusKb();
   session();
 })();
 </script>
