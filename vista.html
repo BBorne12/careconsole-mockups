@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+// Opens only after the VA desktop has been unlocked with the PIN in this browser tab
+(function () { var ok = false; try { ok = sessionStorage.getItem('ccUnlocked') === '1'; } catch (e) { }
+  if (!ok) { document.documentElement.style.display = 'none'; if (window.top === window) location.replace('va-desktop.html'); } })();
+</script>
+<title>VistA</title>
+<!--
+  Simulation of a VistA roll-and-scroll terminal session: sign-on, menus,
+  Home Telehealth, Scheduling (Appointment Management), Patient Inquiry,
+  TIU progress notes and Consult Tracking. Prompts follow general VistA /
+  FileMan conventions; the Home Telehealth menu is approximated. Not connected
+  to VistA; all patients and data are synthetic. Progress notes are shared with
+  the CPRS window (localStorage key "cprsNotes").
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; }
+  #term { position: absolute; inset: 0; overflow-y: auto; padding: 6px 10px 10px; outline: none; cursor: text; }
+  #scr { margin: 0; font: 15px/1.25 Consolas, "Lucida Console", "Courier New", monospace; color: #c8c8c8; white-space: pre; }
+  #scr .rv { background: #c8c8c8; color: #000; }
+  #scr .hi { color: #fff; font-weight: bold; }
+  #scr .dim { color: #8a8a8a; }
+  #scr .grn { color: #6fdc6f; }
+  #scr .cur { background: #c8c8c8; color: #000; animation: blink 1s steps(1) infinite; }
+  #term:not(:focus-within) #scr .cur, #term:not(:focus) #scr .cur { animation: none; background: transparent; outline: 1px solid #888; }
+  @keyframes blink { 50% { background: transparent; color: inherit; } }
+  ::selection { background: #3a5f9a; color: #fff; }
+</style>
+</head>
+<body>
+<div id="term" tabindex="0"><pre id="scr"></pre></div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const pad = n => String(n).padStart(2, '0');
+  const L = (s, n) => String(s ?? '').slice(0, n).padEnd(n);
+  const R = (s, n) => String(s ?? '').slice(0, n).padStart(n);
+  const getJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const setJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // ===================================================================
+  //  Terminal: screen buffer, cursor, keyboard
+  // ===================================================================
+  let lines = [[]];            // each line: array of [text, cls]
+  const MAXLINES = 1500;
+  function w(s = '', c = '') {
+    String(s).split('\n').forEach((part, i) => {
+      if (i > 0) { lines.push([]); if (lines.length > MAXLINES) lines.splice(0, lines.length - MAXLINES); }
+      if (part) lines[lines.length - 1].push([part, c]);
+    });
+    paint();
+  }
+  const wl = (s = '', c = '') => w(s + '\n', c);
+  const cls = () => { lines = [[]]; paint(); };
+  function backspace() {
+    const ln = lines[lines.length - 1]; if (!ln.length) return;
+    const seg = ln[ln.length - 1]; seg[0] = seg[0].slice(0, -1); if (!seg[0]) ln.pop(); paint();
+  }
+  let painting = false;
+  function paint() {
+    if (painting) return; painting = true;
+    requestAnimationFrame(() => {
+      painting = false;
+      $('scr').innerHTML = lines.map((ln, i) => ln.map(([t, c]) => c ? `<span class="${c}">${esc(t)}</span>` : esc(t)).join('') + (i === lines.length - 1 ? '<span class="cur"> </span>' : '')).join('\n');
+      $('term').scrollTop = $('term').scrollHeight;
+    });
+  }
+
+  let inbuf = '', wake = null;
+  function keys(s) { inbuf += s; if (wake) { const f = wake; wake = null; f(); } }
+  window.vistaKeys = keys; // lets the desktop (and tests) type into the session
+  async function readLine(echo = true) {
+    let s = '';
+    for (;;) {
+      while (!inbuf) await new Promise(r => { wake = r; });
+      const ch = inbuf[0]; inbuf = inbuf.slice(1);
+      if (ch === '\r' || ch === '\n') { w('\n'); return s; }
+      if (ch === '\b') { if (s) { s = s.slice(0, -1); if (echo) backspace(); } continue; }
+      if (ch >= ' ' && s.length < 245) { s += ch; if (echo) w(ch); }
+    }
+  }
+  $('term').addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') return; if (e.ctrlKey && e.key.toLowerCase() === 'c' && getSelection().toString()) return; if (e.ctrlKey && e.key.toLowerCase() === 'c') { e.preventDefault(); keys('^\r'); } return; }
+    if (e.key === 'Enter') { e.preventDefault(); keys('\r'); }
+    else if (e.key === 'Backspace') { e.preventDefault(); keys('\b'); }
+    else if (e.key === 'Tab') { e.preventDefault(); }
+    else if (e.key.length === 1) { e.preventDefault(); keys(e.key); }
+  });
+  $('term').addEventListener('paste', e => { e.preventDefault(); keys((e.clipboardData.getData('text') || '').replace(/\r?\n/g, '\r')); });
+  $('term').addEventListener('mouseup', () => { if (!getSelection().toString()) $('term').focus(); });
+  window.addEventListener('focus', () => $('term').focus());
+  function fit() { const px = Math.max(11, Math.min(19, (innerWidth - 24) / 80 / 0.55)); $('scr').style.fontSize = px.toFixed(1) + 'px'; }
+  addEventListener('resize', fit); fit();
+
+  // ask(): VistA-style prompt. "PROMPT: DEFAULT// "  returns '' / text / '^'
+  async function ask(prompt, o = {}) {
+    w(prompt + (o.def != null && o.def !== '' ? `${o.def}// ` : ''));
+    let a = (await readLine(!o.secret)).trim();
+    if (a === '' && o.def != null) a = String(o.def);
+    return a;
+  }
+  async function yn(prompt, def = 'NO') {
+    for (;;) {
+      const a = (await ask(prompt + '? ', { def })).toUpperCase();
+      if (a === '^') return null;
+      if ('YES'.startsWith(a) && a) return true;
+      if ('NO'.startsWith(a) && a) return false;
+      wl("     Answer with 'Yes' or 'No'");
+    }
+  }
+  const pressReturn = async () => (await ask('Enter RETURN to continue or \'^\' to exit: ')) === '^' ? '^' : '';
+
+  // ===================================================================
+  //  Dates (FileMan style). "Today" is Jun 29, 2026 (the desktop date)
+  // ===================================================================
+  const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const MONc = MON.map(m => m[0] + m.slice(1).toLowerCase());
+  const now = () => { const n = new Date(); return new Date(2026, 5, 29, n.getHours(), n.getMinutes(), n.getSeconds()); };
+  const TODAY = new Date(2026, 5, 29);
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const fmD = d => `${MON[d.getMonth()]} ${pad(d.getDate())}, ${d.getFullYear()}`;                     // JUN 29, 2026
+  const fmDT = d => `${fmD(d)}@${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const fmDc = d => `${MONc[d.getMonth()]} ${pad(d.getDate())}, ${d.getFullYear()}`;                   // Jun 29, 2026
+  const fmS = d => `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${String(d.getFullYear()).slice(2)}`; // 06/29/26
+  const fmDOB = d => `${d.getMonth() + 1}-${d.getDate()}-${String(d.getFullYear()).slice(2)}`;
+  const lmNow = () => { const n = now(); return `${fmDc(n)}@${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`; };
+  const isoL = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // parse T, T+n, T-n, NOW, MM/DD, MM/DD/YY(YY), JUL 6, with optional @time (10, 1030, 10:30, 2P)
+  function fmParse(v, { time = 'opt' } = {}) {
+    v = String(v || '').trim().toUpperCase(); if (!v) return null;
+    if (v === 'NOW' || v === 'N') return now();
+    let [dp, tp] = v.split('@'); let d = null;
+    let m;
+    if (dp === 'T' || dp === 'TODAY' || dp === '') d = new Date(TODAY);
+    else if ((m = dp.match(/^T\s*([+-])\s*(\d+)$/))) d = addDays(TODAY, (m[1] === '-' ? -1 : 1) * +m[2]);
+    else if ((m = dp.match(/^(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2}|\d{4}))?$/))) { let y = m[3] ? +m[3] : TODAY.getFullYear(); if (y < 100) y += 2000; d = new Date(y, +m[1] - 1, +m[2]); if (d.getMonth() !== +m[1] - 1) return null; }
+    else if ((m = dp.match(/^([A-Z]{3})[A-Z]*\s*(\d{1,2}),?\s*(\d{4})?$/)) && MON.includes(m[1])) d = new Date(m[3] ? +m[3] : TODAY.getFullYear(), MON.indexOf(m[1]), +m[2]);
+    else return null;
+    if (tp != null) {
+      if (time === 'no') return null;
+      if (tp === 'NOW') { const n = now(); d.setHours(n.getHours(), n.getMinutes()); }
+      else if ((m = tp.match(/^(\d{1,2})(?::?(\d{2}))?\s*(A|P|AM|PM)?$/))) {
+        let h = +m[1], mi = m[2] ? +m[2] : 0; if (m[3] && m[3][0] === 'P' && h < 12) h += 12; if (m[3] && m[3][0] === 'A' && h === 12) h = 0;
+        if (!m[3] && h >= 1 && h <= 6) h += 12; // 1-6 without AM/PM are afternoon, like FileMan
+        if (h > 23 || mi > 59) return null; d.setHours(h, mi);
+      } else return null;
+      d.hasTime = true;
+    } else if (time === 'req') return null;
+    return d;
+  }
+
+  // ===================================================================
+  //  Patients and shared data
+  // ===================================================================
+  const AUTHOR = 'BORNE,BEN', AUTHOR_LONG = 'BEN BORNE', AUTHOR_TITLE = 'RN, HOME TELEHEALTH CARE COORDINATOR';
+  const STATION = 'VA DEMO HCS', STA = '999';
+  const P = [
+    ['robert', 'HALE', 'ROBERT', '000-00-1001', [1958, 2, 14], 'M', 'HTN', 'SC LESS THAN 50%', 1, 'VIETNAM ERA', ['1418 OAK HOLLOW DR', '', 'SPRINGFIELD', 'IL', '62704'], '217-555-0110', 'SANGAMON'],
+    ['david', 'MORENO', 'DAVID', '000-00-1002', [1961, 7, 2], 'M', 'HTN', 'NSC', 7, 'POST-VIETNAM', ['22 CEDAR CT', 'APT 4', 'SPRINGFIELD', 'IL', '62711'], '217-555-0111', 'SANGAMON'],
+    ['kyle', 'BENNETT', 'KYLE', '000-00-1003', [1966, 10, 23], 'M', 'HTN', 'NSC', 8, 'PERSIAN GULF WAR', ['905 RIVER RD', '', 'CHATHAM', 'IL', '62629'], '217-555-0112', 'SANGAMON'],
+    ['brad', 'FOSTER', 'BRAD', '000-00-1004', [1954, 4, 9], 'M', 'HF', 'AID & ATTENDANCE', 4, 'VIETNAM ERA', ['3310 PRAIRIE VIEW LN', '', 'ROCHESTER', 'IL', '62563'], '217-555-0113', 'SANGAMON'],
+    ['miles', 'CARTER', 'MILES', '000-00-1005', [1952, 0, 30], 'M', 'HF', 'SC 50% to 100%', 1, 'VIETNAM ERA', ['71 LINCOLN AVE', '', 'SPRINGFIELD', 'IL', '62702'], '217-555-0114', 'SANGAMON'],
+    ['phil', 'DAWSON', 'PHIL', '000-00-1006', [1957, 8, 17], 'M', 'HF', 'SC LESS THAN 50%', 2, 'VIETNAM ERA', ['4402 SUNSET BLVD', '', 'SHERMAN', 'IL', '62684'], '217-555-0115', 'SANGAMON'],
+    ['bob', 'TURNER', 'BOB', '000-00-1007', [1963, 5, 6], 'M', 'WM', 'NSC, VA PENSION', 5, 'POST-VIETNAM', ['18 BIRCH ST', '', 'PETERSBURG', 'IL', '62675'], '217-555-0116', 'MENARD'],
+    ['michelle', 'REYES', 'MICHELLE', '000-00-1008', [1970, 11, 1], 'F', 'WM', 'SC LESS THAN 50%', 6, 'PERSIAN GULF WAR', ['650 MEADOW DR', 'UNIT B', 'SPRINGFIELD', 'IL', '62707'], '217-555-0117', 'SANGAMON'],
+    ['sarah', 'COLLINS', 'SARAH', '000-00-1009', [1968, 3, 19], 'F', 'WM', 'NSC', 6, 'PERSIAN GULF WAR', ['2201 HILLCREST AVE', '', 'AUBURN', 'IL', '62615'], '217-555-0118', 'SANGAMON']
+  ].map(r => ({ id: r[0], last: r[1], first: r[2], ssn: r[3], dob: new Date(...r[4]), sex: r[5], prog: r[6], elig: r[7], pg: r[8], pos: r[9], addr: r[10], phone: r[11], county: r[12] }));
+  P.forEach(p => { p.name = `${p.last},${p.first}`; p.l4 = p.last[0] + p.ssn.slice(-4); p.ssn9 = p.ssn.replace(/-/g, ''); p.sc = !p.elig.startsWith('NSC') && p.elig !== 'AID & ATTENDANCE'; });
+  const byId = Object.fromEntries(P.map(p => [p.id, p]));
+  const sorted = [...P].sort((a, b) => a.name.localeCompare(b.name));
+  const progName = p => p.prog === 'HTN' ? 'HYPERTENSION' : p.prog === 'HF' ? 'HEART FAILURE' : 'MOVE! WEIGHT MANAGEMENT';
+  const DX = { HTN: [['I10', 'Essential (primary) hypertension'], ['E78.5', 'Hyperlipidemia, unspecified'], ['E66.3', 'Overweight']],
+    HF: [['I50.22', 'Chronic systolic (congestive) heart failure'], ['I10', 'Essential (primary) hypertension'], ['I48.91', 'Unspecified atrial fibrillation']],
+    WM: [['E66.9', 'Obesity, unspecified'], ['R73.03', 'Prediabetes'], ['G47.33', 'Obstructive sleep apnea (adult) (pediatric)']] };
+  const CPT = [['98966', 'TELEPHONE ASSESSMENT 5-10 MIN (NON-PHYSICIAN)'], ['98967', 'TELEPHONE ASSESSMENT 11-20 MIN (NON-PHYSICIAN)'], ['98968', 'TELEPHONE ASSESSMENT 21-30 MIN (NON-PHYSICIAN)'], ['99091', 'COLLECT/INTERPRET PHYSIOLOGIC DATA, 30 MIN'], ['G0406', 'FOLLOW-UP TELEHEALTH CONSULT, 15 MIN']];
+  const CLINICS = [
+    { name: 'HT CC 685 TELEPHONE', stop: '685', len: 20 },
+    { name: 'HT CC 179 VIDEO', stop: '179', len: 30 },
+    { name: 'HT CC 686 NON-VIDEO', stop: '686', len: 20 },
+    { name: 'HT INTAKE 685', stop: '685', len: 60 }
+  ];
+
+  // CPRS progress notes (shared with the CPRS window). Same seed as CPRS.
+  function loadNotes() {
+    let n = getJson('cprsNotes', null);
+    if (!n) {
+      n = {};
+      P.forEach(p => {
+        const d1 = new Date(2026, 0, 2, 10, 12), d2 = new Date(2026, 3, 15, 14, 5);
+        n[p.id] = [
+          { id: p.id + '-1', title: 'HOME TELEHEALTH NOTE', date: d1.toISOString(), author: AUTHOR, signed: true, signedAt: d1.toISOString(),
+            text: `Patient enrolled in VA Home Telehealth (RPM) ${p.prog === 'HTN' ? 'Hypertension' : p.prog === 'HF' ? 'Heart Failure' : 'MOVE! Weight Management'} program.\nEquipment issued and patient instructed on daily use. Patient verbalized\nunderstanding and was able to complete a session independently.\n\nWill follow per Home Telehealth protocol.` },
+          { id: p.id + '-2', title: 'RPM-HT PERIODIC EVALUATION NOTE', date: d2.toISOString(), author: AUTHOR, signed: true, signedAt: d2.toISOString(),
+            text: 'Periodic evaluation completed by telephone. Reviewed readings and DMP\nresponses with patient. Patient remains appropriate for Home Telehealth.\nContinue current plan of care.' }];
+      });
+    }
+    return n;
+  }
+  const notesFor = id => (loadNotes()[id] || []).slice().sort((a, b) => b.date.localeCompare(a.date));
+  function saveNote(ptId, note) { const n = loadNotes(); n[ptId] = n[ptId] || []; const i = n[ptId].findIndex(x => x.id === note.id); if (i >= 0) n[ptId][i] = note; else n[ptId].push(note); setJson('cprsNotes', n); }
+  function deleteNote(ptId, id) { const n = loadNotes(); n[ptId] = (n[ptId] || []).filter(x => x.id !== id); setJson('cprsNotes', n); }
+  const TITLES = ['HOME TELEHEALTH CARE COORDINATION NOTE', 'HOME TELEHEALTH NOTE', 'HOME TELEHEALTH NON-RESPONDER NOTE', 'HOME TELEHEALTH DISCHARGE NOTE',
+    'RPM-HT PERIODIC EVALUATION NOTE', 'RPM-HT TECH EDUCATION NOTE', 'MOVE! TELEHEALTH NOTE', 'NURSING NOTE', 'PRIMARY CARE TELEPHONE NOTE', 'PRIMARY CARE NOTE'];
+
+  // VistA-only data: appointments, consults, Home Telehealth enrollment
+  const SEED_V = 1;
+  let DB;
+  function seed() {
+    DB = { appts: [], consults: [], ht: {}, seq: 100, hl7: 74102 };
+    P.forEach((p, i) => {
+      DB.appts.push({ id: DB.seq++, pt: p.id, clinic: 'HT INTAKE 685', dt: '2026-01-02T10:00', len: 60, type: 'REGULAR', status: 'CHECKED OUT', co: '2026-01-02T10:50', dx: DX[p.prog][0][0], cpt: '98968', prov: AUTHOR });
+      DB.appts.push({ id: DB.seq++, pt: p.id, clinic: 'HT CC 685 TELEPHONE', dt: '2026-04-15T14:00', len: 20, type: 'REGULAR', status: 'CHECKED OUT', co: '2026-04-15T14:20', dx: DX[p.prog][0][0], cpt: '98967', prov: AUTHOR });
+      DB.appts.push({ id: DB.seq++, pt: p.id, clinic: 'HT CC 685 TELEPHONE', dt: `2026-07-${pad(6 + i)}T${pad(9 + (i % 5))}:${i % 2 ? '20' : '00'}`, len: 20, type: 'REGULAR', status: 'FUTURE' });
+      DB.consults.push({ no: 4410 + i, pt: p.id, svc: 'HOME TELEHEALTH ENROLLMENT', date: '2025-12-18T09:' + pad(10 + i), status: 'c', urg: 'ROUTINE', place: 'CONSULTANT\'S CHOICE', from: 'PROVIDER,PRIMARY CARE',
+        reason: `Please evaluate for enrollment in Home Telehealth ${progName(p).toLowerCase()} program.\nPatient agreeable to daily vital sign and symptom monitoring.`,
+        log: [['2025-12-18T09:' + pad(10 + i), 'CPRS RELEASED ORDER', 'PROVIDER,PRIMARY CARE', ''], ['2025-12-19T08:30', 'RECEIVED', AUTHOR, ''], ['2026-01-02T10:12', 'COMPLETE/UPDATE', AUTHOR, 'Note: HOME TELEHEALTH NOTE (01/02/26)']] });
+      DB.ht[p.id] = { status: 'ACTIVE', vendor: 'CARECONSOLE', coc: p.prog === 'WM' ? 'HP/DP' : 'CCM', cc: AUTHOR, consult: 4410 + i,
+        hist: [{ act: 'ACTIVATION', date: '2026-01-02T10:15', by: AUTHOR, coc: p.prog === 'WM' ? 'HP/DP' : 'CCM', hl7: DB.hl7++, ack: 'AA' }] };
+    });
+    // A few items to work today
+    DB.appts.push({ id: DB.seq++, pt: 'robert', clinic: 'HT CC 685 TELEPHONE', dt: '2026-06-29T10:30', len: 20, type: 'REGULAR', status: 'FUTURE' });
+    DB.appts.push({ id: DB.seq++, pt: 'brad', clinic: 'HT CC 685 TELEPHONE', dt: '2026-06-29T13:00', len: 20, type: 'REGULAR', status: 'FUTURE' });
+    DB.appts.push({ id: DB.seq++, pt: 'sarah', clinic: 'HT CC 179 VIDEO', dt: '2026-06-29T09:00', len: 30, type: 'REGULAR', status: 'CHECKED IN', ci: '2026-06-29T08:57' });
+    DB.appts.push({ id: DB.seq++, pt: 'phil', clinic: 'HT CC 685 TELEPHONE', dt: '2026-06-26T11:00', len: 20, type: 'REGULAR', status: 'FUTURE' });
+    DB.consults.push({ no: 4425, pt: 'phil', svc: 'HOME TELEHEALTH RE-EVALUATION', date: '2026-06-25T15:02', status: 'p', urg: 'ROUTINE', place: 'CONSULTANT\'S CHOICE', from: 'PROVIDER,PRIMARY CARE',
+      reason: 'Patient with recent HF exacerbation. Please re-evaluate Home Telehealth\ncategory of care and DMP. Consider increasing monitoring frequency.', log: [['2026-06-25T15:02', 'CPRS RELEASED ORDER', 'PROVIDER,PRIMARY CARE', '']] });
+    DB.consults.push({ no: 4426, pt: 'bob', svc: 'MOVE! TELEHEALTH', date: '2026-06-27T10:40', status: 'p', urg: 'ROUTINE', place: 'CONSULTANT\'S CHOICE', from: 'PROVIDER,PRIMARY CARE',
+      reason: 'Veteran interested in MOVE! weight management by telehealth.', log: [['2026-06-27T10:40', 'CPRS RELEASED ORDER', 'PROVIDER,PRIMARY CARE', '']] });
+    save(); localStorage.setItem('vistaSeed', String(SEED_V));
+  }
+  function save() { setJson('vistaDB', DB); }
+  if (localStorage.getItem('vistaSeed') !== String(SEED_V)) seed(); else DB = getJson('vistaDB', null) || (seed(), DB);
+  const apptDate = a => new Date(a.dt);
+  function apptStatus(a) {
+    if (a.status === 'FUTURE') return apptDate(a) < TODAY ? 'NO ACTION TAKEN' : 'FUTURE';
+    return a.status;
+  }
+  const ptAppts = id => DB.appts.filter(a => a.pt === id).sort((a, b) => a.dt.localeCompare(b.dt));
+
+  // ===================================================================
+  //  Common lookups
+  // ===================================================================
+  function ptLine(p) { return `${L(p.name, 22)}  ${L(fmDOB(p.dob), 9)} ${p.ssn9}     YES     ${p.sc ? 'SC VETERAN' : 'NSC VETERAN'}`; }
+  async function selectPatient(prompt = 'Select PATIENT NAME: ', initial) {
+    for (;;) {
+      const a = initial != null ? initial : (await ask(prompt)).toUpperCase(); initial = null;
+      if (!a || a === '^') return null;
+      if (a === '?' || a === '??') { wl(' Answer with PATIENT NAME, or SOCIAL SECURITY NUMBER, or last 4 of SSN, or'); wl(' first initial of last name with last 4 of SSN (e.g. H1001).'); if (a === '??') sorted.forEach(p => wl('   ' + ptLine(p))); continue; }
+      let m;
+      if (/^[A-Z]\d{4}$/.test(a)) m = P.filter(p => p.l4 === a);
+      else if (/^\d{4}$/.test(a)) m = P.filter(p => p.ssn.endsWith(a));
+      else if (/^\d{3}-?\d{2}-?\d{4}$/.test(a)) m = P.filter(p => p.ssn9 === a.replace(/-/g, ''));
+      else { const [l, f = ''] = a.split(','); m = sorted.filter(p => p.last.startsWith(l.trim()) && p.first.startsWith(f.trim())); }
+      if (!m.length) { wl(' ??'); continue; }
+      let p = m[0];
+      if (m.length > 1) {
+        m.forEach((x, i) => wl(`     ${i + 1}   ${ptLine(x)}`));
+        const c = await ask(`CHOOSE 1-${m.length}: `); const n = +c; if (!n || n < 1 || n > m.length) continue; p = m[n - 1];
+        wl('  ' + ptLine(p));
+      } else wl('  ' + ptLine(p));
+      wl(` Enrollment Priority: GROUP ${p.pg}    Category: ENROLLED    End Date:`);
+      return p;
+    }
+  }
+  async function pickFrom(prompt, list, { def, show = true } = {}) { // list of strings; prefix match
+    for (;;) {
+      const a = (await ask(prompt, { def })).toUpperCase();
+      if (!a || a === '^') return a === '^' ? '^' : null;
+      if (a.startsWith('?')) { list.forEach(x => wl('   ' + x)); continue; }
+      const m = list.filter(x => x.toUpperCase().startsWith(a));
+      if (m.length === 1) { if (m[0].toUpperCase() !== a) { lines[lines.length - 2].push([m[0].slice(a.length), '']); paint(); } return m[0]; }
+      if (!m.length) { wl(' ??'); continue; }
+      if (!show) return m[0];
+      m.forEach((x, i) => wl(`     ${i + 1}   ${x}`));
+      const n = +(await ask(`CHOOSE 1-${m.length}: `)); if (n >= 1 && n <= m.length) return m[n - 1];
+    }
+  }
+  async function askDate(prompt, o = {}) {
+    for (;;) {
+      const a = await ask(prompt, { def: o.def });
+      if (!a || a === '^') return a === '^' ? '^' : null;
+      if (a.startsWith('?')) { wl(' Examples of Valid Dates:'); wl('   JAN 20 1957 or 20 JAN 57 or 1/20/57 or 012057'); wl('   T   (for TODAY),  T+1 (for TOMORROW),  T+2,  T+7,  etc.'); wl('   T-1 (for YESTERDAY),  T-3W (for 3 WEEKS AGO), etc.'); if (o.time !== 'no') wl(' If the date is omitted, the current date is assumed. Follow the date with a time, such as JAN 20@10, T@10AM, 10:30.'); continue; }
+      const d = fmParse(a, o);
+      if (!d) { wl(' ??'); continue; }
+      if (o.notFuture && d > now()) { wl('  Date cannot be in the future.'); continue; }
+      lines[lines.length - 2].push([`  (${d.hasTime || o.time === 'req' ? fmDT(d) : fmD(d)})`, '']); paint();
+      return d;
+    }
+  }
+
+  // ===================================================================
+  //  Menus
+  // ===================================================================
+  // items: [syn, name, fn | submenu {title, items}]
+  async function menu(title, items, top = false) {
+    let show = true;
+    for (;;) {
+      if (show) { wl(); items.forEach(([s, n, f]) => wl(`   ${L(s, 6)} ${n}${f && f.items ? ' ...' : ''}`)); if (top && alertList().length) { wl(); wl('          You have PENDING ALERTS', 'hi'); wl('          Enter  "VA to jump to VIEW ALERTS option'); } wl(); show = false; }
+      const a = (await ask(`Select ${title} Option: `)).toUpperCase();
+      if (a === '') { if (top) continue; return; }
+      if (a === '^' || a === 'HALT') { if (!top) return; if (await yn('Do you really want to halt', 'YES')) return 'halt'; continue; }
+      if (a === '?' || a === '??' || a === '???') { show = true; if (a !== '?') { wl(); wl(' Enter the option synonym or the first characters of its name.  ^ goes back.'); wl(' Common options: "VA View Alerts,  "TBOX User\'s Toolbox (not in this simulation)'); } continue; }
+      if (a === '"VA' || a === 'VA') { await viewAlerts(); show = true; continue; }
+      let m = items.filter(([s]) => s.toUpperCase() === a);
+      if (!m.length) m = items.filter(([, n]) => n.toUpperCase().startsWith(a) || n.toUpperCase().split(/[\s/]+/).some(wd => wd.startsWith(a) && a.length >= 3));
+      if (!m.length) { wl(' ??'); continue; }
+      let it = m[0];
+      if (m.length > 1) { m.forEach((x, i) => wl(`     ${i + 1}   ${x[1]}`)); const n = +(await ask(`CHOOSE 1-${m.length}: `)); if (!(n >= 1 && n <= m.length)) continue; it = m[n - 1]; }
+      if (m.length === 1 && a !== it[0].toUpperCase() && it[1].toUpperCase().startsWith(a)) { lines[lines.length - 2].push([it[1].slice(a.length), '']); paint(); }
+      wl();
+      const f = it[2];
+      if (f && f.items) { const r = await menu(f.title, f.items); if (r === 'halt') return r; }
+      else { try { await f(); } catch (e) { wl('%' + (e && e.message || e)); } }
+      show = true;
+    }
+  }
+  function alertList() {
+    const unsigned = P.flatMap(p => notesFor(p.id).filter(n => !n.signed).map(n => ({ p, n })));
+    const pend = DB.consults.filter(c => c.status === 'p');
+    return [...unsigned.map(x => `${x.p.last},${x.p.first[0]} (${x.p.l4}): UNSIGNED ${x.n.title} available for SIGNATURE.`), ...pend.map(c => `${byId[c.pt].last},${byId[c.pt].first[0]} (${byId[c.pt].l4}): New consult ${c.svc} (#${c.no}) ordered.`)];
+  }
+  async function viewAlerts() {
+    wl(); wl('VIEW ALERTS', 'hi');
+    const al = alertList();
+    if (!al.length) wl('  No pending alerts.'); else al.forEach((t, i) => wl(` ${R(i + 1, 3)}  I ${t}`));
+    wl(); wl('  Process alerts from the related option (TIU Review Unsigned Notes, Consult Tracking).', 'dim');
+  }
+
+  // ===================================================================
+  //  List Manager screen (header, body, action menu)
+  // ===================================================================
+  async function listMan({ title, header, rows, actions, fns, onOpen }) {
+    let top = 0; const PAGE = 13;
+    for (;;) {
+      const body = typeof rows === 'function' ? rows() : rows;
+      cls();
+      const pg = Math.floor(top / PAGE) + 1, pgs = Math.max(1, Math.ceil(body.length / PAGE));
+      wl(L(title, 30) + L(lmNow(), 30) + `Page: ${R(pg, 4)} of ${R(pgs, 4)} `, 'rv');
+      (typeof header === 'function' ? header() : header).forEach(h => wl(L(h, 80), h.rv ? 'rv' : ''));
+      const shown = body.slice(top, top + PAGE);
+      shown.forEach(r => wl(r)); for (let i = shown.length; i < PAGE; i++) wl('');
+      wl(L(`          ${top + PAGE < body.length ? '+ Next Screen   ' : ''}${top ? '- Prev Screen   ' : ''}?? More Actions`, 80), 'rv');
+      for (let i = 0; i < actions.length; i += 3) wl(actions.slice(i, i + 3).map(x => L(x, 26)).join(''));
+      const a = (await ask('Select Action: ', { def: top + PAGE < body.length ? 'Next Screen' : 'Quit' })).toUpperCase();
+      if (a === 'Q' || a === 'QUIT' || a === '^' || a === '') return;
+      if (a === '+' || a === 'NEXT SCREEN') { if (top + PAGE < body.length) top += PAGE; continue; }
+      if (a === '-') { top = Math.max(0, top - PAGE); continue; }
+      if (a === '?' || a === '??') { wl(' Enter an action by its name or abbreviation. You may follow it with an item number, e.g. BR=2.'); await pressReturn(); continue; }
+      const [cmd, arg] = a.split('=');
+      const key = Object.keys(fns).find(k => k === cmd) || Object.keys(fns).find(k => fns[k].label && fns[k].label.toUpperCase().startsWith(cmd));
+      if (!key) { wl(' ??'); await sleep(500); continue; }
+      wl();
+      const r = await fns[key](arg ? +arg : null);
+      if (r === 'quit') return;
+    }
+  }
+  async function pickItem(n, max, label = 'Select Entry') {
+    if (!max) { wl('  There are no entries to select.'); await pressReturn(); return null; }
+    if (n) return n >= 1 && n <= max ? n : null;
+    const a = await ask(`${label}:  (1-${max}): `, max === 1 ? { def: 1 } : {}); const x = +a;
+    return x >= 1 && x <= max ? x : null;
+  }
+
+  // ===================================================================
+  //  Patient Inquiry (Registration)
+  // ===================================================================
+  async function patientInquiry() {
+    for (;;) {
+      const p = await selectPatient(); if (!p) return;
+      wl(); wl(`${L(p.name, 40)}${L(p.ssn, 26)}${fmD(p.dob)}`, 'hi'); wl('='.repeat(79));
+      const a = p.addr, ht = DB.ht[p.id];
+      wl(` Address: ${L(a[0], 31)} Temporary: NO TEMPORARY ADDRESS`);
+      if (a[1]) wl(`          ${a[1]}`);
+      wl(`          ${L(a[2] + ',' + a[3] + ' ' + a[4], 31)}`);
+      wl(`  County: ${L(a[2] === 'PETERSBURG' ? 'MENARD (129)' : 'SANGAMON (167)', 31)}   From/To: NOT APPLICABLE`);
+      wl(`   Phone: ${L(p.phone, 31)}     Phone: NOT APPLICABLE`);
+      wl(`  Office: UNANSWERED`);
+      wl(`Bad Addr:`);
+      wl(); wl(`     POS: ${L(p.pos, 31)}   Claim #: UNSPECIFIED`);
+      wl(`   Relig: UNSPECIFIED                           Sex: ${p.sex === 'M' ? 'MALE' : 'FEMALE'}`);
+      wl(`    Race: UNANSWERED                      Ethnicity: UNANSWERED`);
+      wl(); wl(`Primary Eligibility: ${p.elig} (VERIFIED)`); wl('Other Eligibilities:'); wl('       Unemployable: NO'); wl();
+      wl('Status      : PATIENT HAS NO INPATIENT OR LODGER ACTIVITY IN THE COMPUTER'); wl();
+      const fut = ptAppts(p.id).filter(x => apptStatus(x) === 'FUTURE');
+      wl('Future Appointments:' + (fut.length ? '' : ' NONE'));
+      fut.slice(0, 4).forEach(x => wl(`    ${L(x.clinic, 30)}${L(fmDT(apptDate(x)), 21)}SCHEDULED`));
+      wl(); wl(`Remarks:`);
+      wl(`Home Telehealth: ${ht ? ht.status + ' (' + ht.vendor + ', ' + ht.coc + ')' : 'NOT ENROLLED'}`);
+      wl(); wl('Health Insurance Information:'); wl(p.pg >= 7 ? '  MEDICARE (WNR)    PART A/B   Subscriber: SELF   Effective: 01/01/2020' : '  No Insurance Information');
+      wl(); wl(`Enrollment Priority: GROUP ${p.pg}     Enrollment Status: VERIFIED     Effective: 01/02/2026`);
+      wl();
+      const r = await ask('Do you want to continue processing this patient record? ', { def: 'NO' }); if (r === '^') return;
+      if (/^Y/i.test(r)) { await enrollInquiry(p); }
+      wl();
+    }
+  }
+  async function enrollInquiry(p) {
+    wl(); wl(`ENROLLMENT/ELIGIBILITY INFORMATION FOR ${p.name} (${p.l4})`, 'hi'); wl('-'.repeat(79));
+    wl(`  Enrollment Date: JAN 02, 2026          Enrollment Priority: GROUP ${p.pg}`);
+    wl(`  Enrollment Status: VERIFIED             Source: VAMC  ${STA}`);
+    wl(`  Primary Eligibility: ${p.elig}`);
+    wl(`  Service Connected: ${p.sc ? 'YES' : 'NO'}${p.sc ? '            SC Percent: ' + (p.elig.includes('50% to 100%') ? '70%' : '30%') : ''}`);
+    wl(`  Means Test: ${p.pg >= 5 ? 'COPAY REQUIRED' : 'NO LONGER REQUIRED'}`);
+    wl(`  Period of Service: ${p.pos}`);
+    await pressReturn();
+  }
+
+  // ===================================================================
+  //  Scheduling: Appointment Management (SDAM) and related options
+  // ===================================================================
+  const CLIN_NAMES = CLINICS.map(c => c.name);
+  const findClinic = n => CLINICS.find(c => c.name === n);
+  async function apptMgmt() {
+    for (;;) {
+      const a = (await ask('Select Patient name or Clinic name: ')).toUpperCase();
+      if (!a || a === '^') return;
+      const clin = CLINICS.filter(c => c.name.startsWith(a) || (a.startsWith('HT') && c.name.includes(a)));
+      if (clin.length && a.length >= 2 && a.startsWith('HT')) {
+        let c = clin[0]; if (clin.length > 1) { clin.forEach((x, i) => wl(`     ${i + 1}   ${x.name}`)); const n = +(await ask(`CHOOSE 1-${clin.length}: `)); if (!(n >= 1 && n <= clin.length)) continue; c = clin[n - 1]; }
+        else lines[lines.length - 2].push([c.name.slice(a.length), '']);
+        await clinicView(c); return;
+      }
+      const p = await selectPatient('Select Patient name or Clinic name: ', a); if (!p) return;
+      await patientView(p); return;
+    }
+  }
+  function apptRow(i, x, withPt) {
+    const st = apptStatus(x);
+    return withPt ? ` ${R(i + 1, 2)}  ${L(byId[x.pt].name, 24)} ${byId[x.pt].l4}  ${L(fmDT(apptDate(x)).slice(13), 6)}  ${L(st, 20)}`
+      : ` ${R(i + 1, 2)}  ${L(fmDT(apptDate(x)).replace(/(\w{3}) (\d\d), (\d{4})/, (m, a, b, c) => `${a[0]}${a.slice(1).toLowerCase()} ${b}, ${c}`), 18)}  ${L(x.clinic, 26)} ${L(st, 18)}`;
+  }
+  async function patientView(p) {
+    let from = addDays(TODAY, -180), to = addDays(TODAY, 365);
+    const list = () => ptAppts(p.id).filter(x => apptDate(x) >= from && apptDate(x) <= addDays(to, 1));
+    const sel = async (n, filter) => { const l = list(); const k = await pickItem(n, l.length, 'Select Appointment'); return k ? l[k - 1] : null; };
+    await listMan({
+      title: 'Appt Mgt Module',
+      header: () => [` Patient: ${p.name} (${p.l4})${' '.repeat(30)}Outpatient`, ` Date Range: ${fmS(from)} to ${fmS(to)}`, Object.assign(new String(L('     Appt Date/Time      Clinic                     Status', 80)), { rv: true })],
+      rows: () => list().map((x, i) => apptRow(i, x)),
+      actions: ['MA  Make Appointment', 'CI  Check In', 'CO  Check Out', 'CA  Cancel Appointment', 'NS  No Show', 'EP  Expand Entry', 'CD  Change Date Range', 'PD  Patient Demographics', 'Q   Quit'],
+      fns: {
+        MA: Object.assign(async () => { await makeAppt(p); }, { label: 'Make Appointment' }),
+        CI: Object.assign(async n => { const x = await sel(n); if (x) await checkIn(x); }, { label: 'Check In' }),
+        CO: Object.assign(async n => { const x = await sel(n); if (x) await checkOut(x); }, { label: 'Check Out' }),
+        CA: Object.assign(async n => { const x = await sel(n); if (x) await cancelAppt(x); }, { label: 'Cancel Appointment' }),
+        NS: Object.assign(async n => { const x = await sel(n); if (x) await noShow(x); }, { label: 'No Show' }),
+        EP: Object.assign(async n => { const x = await sel(n); if (x) await expandAppt(x); }, { label: 'Expand Entry' }),
+        CD: Object.assign(async () => { const f = await askDate('Select Beginning Date: ', { def: fmS(from), time: 'no' }); if (!f || f === '^') return; const t = await askDate('Select Ending Date: ', { def: fmS(to), time: 'no' }); if (!t || t === '^') return; from = f; to = t; }, { label: 'Change Date Range' }),
+        PD: Object.assign(async () => { cls(); wl(`${p.name}  ${p.ssn}  DOB: ${fmD(p.dob)}`, 'hi'); wl(`  ${p.addr.filter(Boolean).slice(0, 2).join(', ')}, ${p.addr[2]}, ${p.addr[3]} ${p.addr[4]}`); wl(`  Phone: ${p.phone}    Eligibility: ${p.elig}    Priority Group: ${p.pg}`); await pressReturn(); }, { label: 'Patient Demographics' })
+      }
+    });
+  }
+  async function clinicView(c) {
+    let day = new Date(TODAY);
+    const list = () => DB.appts.filter(x => x.clinic === c.name && apptDate(x).toDateString() === day.toDateString()).sort((a, b) => a.dt.localeCompare(b.dt));
+    const sel = async n => { const l = list(); const k = await pickItem(n, l.length, 'Select Appointment'); return k ? l[k - 1] : null; };
+    await listMan({
+      title: 'Appt Mgt Module',
+      header: () => [` Clinic: ${c.name}${' '.repeat(Math.max(1, 46 - c.name.length))}Stop Code: ${c.stop}`, ` Date: ${fmDc(day)}`, Object.assign(new String(L('     Patient                  ID     Time    Status', 80)), { rv: true })],
+      rows: () => list().map((x, i) => apptRow(i, x, true)),
+      actions: ['MA  Make Appointment', 'CI  Check In', 'CO  Check Out', 'CA  Cancel Appointment', 'NS  No Show', 'EP  Expand Entry', 'CD  Change Date', 'Q   Quit'],
+      fns: {
+        MA: Object.assign(async () => { const p = await selectPatient(); if (p) await makeAppt(p, c); }, { label: 'Make Appointment' }),
+        CI: Object.assign(async n => { const x = await sel(n); if (x) await checkIn(x); }, { label: 'Check In' }),
+        CO: Object.assign(async n => { const x = await sel(n); if (x) await checkOut(x); }, { label: 'Check Out' }),
+        CA: Object.assign(async n => { const x = await sel(n); if (x) await cancelAppt(x); }, { label: 'Cancel Appointment' }),
+        NS: Object.assign(async n => { const x = await sel(n); if (x) await noShow(x); }, { label: 'No Show' }),
+        EP: Object.assign(async n => { const x = await sel(n); if (x) await expandAppt(x); }, { label: 'Expand Entry' }),
+        CD: Object.assign(async () => { const d = await askDate('Select Date: ', { def: 'T', time: 'no' }); if (d && d !== '^') day = d; }, { label: 'Change Date' })
+      }
+    });
+  }
+  function availGrid(c, d0) {
+    wl(); wl(`${L(c.name, 26)}  ${c.len} MINUTE APPOINTMENTS`);
+    wl('                  |8    |9    |10   |11   |12   |1    |2    |3    |');
+    wl(' DATE             |     |     |     |     |     |     |     |     |');
+    let d = new Date(d0), shown = 0;
+    while (shown < 5) {
+      if (d.getDay() !== 0 && d.getDay() !== 6) {
+        const cells = [8, 9, 10, 11, 12, 13, 14, 15].map(h => {
+          if (h === 12) return '     ';
+          return [0, 20, 40].map(mi => DB.appts.some(x => x.clinic === c.name && !x.status.startsWith('CANCEL') && apptDate(x).toDateString() === d.toDateString() && apptDate(x).getHours() === h && apptDate(x).getMinutes() === mi) ? '0' : '1').join(' ');
+        });
+        wl(` ${['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][d.getDay()]} ${fmS(d)}      |${cells.join('|')}|`);
+        shown++;
+      }
+      d = addDays(d, 1);
+    }
+    wl(' 1 = slot available, 0 = booked', 'dim');
+  }
+  async function makeAppt(p, clinic) {
+    let c = clinic;
+    if (!c) { const n = await pickFrom('Select CLINIC: ', CLIN_NAMES); if (!n || n === '^') return; c = findClinic(n); }
+    const ht = DB.ht[p.id];
+    const type = await pickFrom('APPOINTMENT TYPE: ', ['REGULAR', 'COMPENSATION & PENSION', 'EMPLOYEE', 'SERVICE CONNECTED'], { def: p.sc ? 'SERVICE CONNECTED' : 'REGULAR' }); if (!type || type === '^') return;
+    const next = await yn("IS THIS A 'NEXT AVAILABLE' APPOINTMENT REQUEST", 'NO'); if (next === null) return;
+    const pref = await askDate('PATIENT PREFERRED DATE (CID): ', { def: 'T+7', time: 'no' }); if (!pref || pref === '^') return;
+    availGrid(c, pref);
+    wl();
+    let d;
+    for (;;) {
+      d = await askDate('DATE/TIME: ', { time: 'req' }); if (!d || d === '^') return;
+      if (d < now()) { wl('  Appointment date/time must be in the future.'); continue; }
+      if (d.getDay() === 0 || d.getDay() === 6 || d.getHours() < 8 || d.getHours() >= 16 || d.getHours() === 12) { wl('  NO OPEN SLOTS THEN (clinic is available Mon-Fri 08:00-16:00, not 12:00-13:00)'); continue; }
+      if (DB.appts.some(x => x.clinic === c.name && x.dt === isoL(d) && !x.status.startsWith('CANCEL'))) { wl('  THAT SLOT IS ALREADY BOOKED, choose another time'); continue; }
+      if (DB.appts.some(x => x.pt === p.id && x.dt === isoL(d) && !x.status.startsWith('CANCEL'))) { wl('  PATIENT ALREADY HAS AN APPOINTMENT ON ' + fmDT(d)); continue; }
+      break;
+    }
+    const len = +(await ask('LENGTH OF APPOINTMENT (IN MINUTES): ', { def: c.len })) || c.len;
+    const why = await ask('OTHER INFO: '); if (why === '^') return;
+    const ok = await yn(`...OK`, 'YES'); if (!ok) { wl('  Appointment not made.'); await sleep(600); return; }
+    DB.appts.push({ id: DB.seq++, pt: p.id, clinic: c.name, dt: isoL(d), len, type, status: 'FUTURE', info: why, made: isoL(now()), by: AUTHOR });
+    save();
+    wl(`  APPOINTMENT MADE`, 'hi');
+    wl(`  ${p.name} is scheduled in ${c.name} on ${fmDT(d)}`);
+    if (!ht || ht.status !== 'ACTIVE') wl('  NOTE: Patient is not active in Home Telehealth.', 'dim');
+    await yn('WANT PATIENT NOTIFIED OF LAB,X-RAY, OR EKG STOPS', 'NO');
+    await pressReturn();
+  }
+  async function checkIn(x) {
+    const st = apptStatus(x);
+    if (st !== 'FUTURE' && st !== 'NO ACTION TAKEN') { wl(`  Appointment status is ${st}; it cannot be checked in.`); return pressReturn(); }
+    if (apptDate(x).toDateString() !== TODAY.toDateString()) { wl('  Only appointments for today can be checked in.'); return pressReturn(); }
+    const d = await askDate('CHECK IN DATE/TIME: ', { def: 'NOW', time: 'req', notFuture: true }); if (!d || d === '^') return;
+    x.status = 'CHECKED IN'; x.ci = isoL(d); save(); wl('  ...checked in ' + fmDT(d)); await sleep(700);
+  }
+  async function checkOut(x) {
+    const p = byId[x.pt], st = apptStatus(x);
+    if (st === 'CHECKED OUT') { wl('  Appointment has already been checked out.'); return pressReturn(); }
+    if (st.startsWith('CANCEL') || st === 'NO-SHOW') { wl(`  Appointment is ${st}; it cannot be checked out.`); return pressReturn(); }
+    if (apptDate(x) >= addDays(TODAY, 1)) { wl('  Appointment is in the future; it cannot be checked out yet.'); return pressReturn(); }
+    wl(`  Checking out ${p.name}: ${x.clinic}  ${fmDT(apptDate(x))}`, 'hi');
+    const d = await askDate('CHECK OUT DATE/TIME: ', { def: 'NOW', time: 'req', notFuture: true }); if (!d || d === '^') return;
+    wl(); wl('--- Classification --- [Required]');
+    let sc = null; if (p.sc) { sc = await yn('Was treatment for SC Condition', 'NO'); if (sc === null) return; }
+    wl(); wl('--- Provider ---');
+    const prov = (await ask('Enter PROVIDER: ', { def: AUTHOR })).toUpperCase(); if (prov === '^') return;
+    wl(); wl('--- Diagnosis ---'); DX[p.prog].forEach((dx, i) => wl(`     ${i + 1}   ${L(dx[0], 8)} ${dx[1]}`));
+    let dx; for (;;) { const a = (await ask('Enter Diagnosis : ', { def: DX[p.prog][0][0] })).toUpperCase(); if (a === '^') return; dx = DX[p.prog][+a - 1] || DX[p.prog].find(z => z[0] === a) || (/^[A-Z]\d\d(\.\d{1,4})?$/.test(a) ? [a, 'DIAGNOSIS ' + a] : null); if (dx) break; wl(' ??'); }
+    wl(`    ${dx[0]}  ${dx[1]}`);
+    const primary = await yn('Is this Diagnosis Primary for the encounter', 'YES'); if (primary === null) return;
+    wl(); wl('--- Procedure ---'); CPT.forEach((c, i) => wl(`     ${i + 1}   ${c[0]}  ${c[1]}`));
+    let cpt; for (;;) { const a = (await ask('Enter PROCEDURE (CPT): ', { def: CPT[1][0] })).toUpperCase(); if (a === '^') return; cpt = CPT[+a - 1] || CPT.find(z => z[0] === a); if (cpt) break; wl(' ??'); }
+    wl(`    ${cpt[0]}  ${cpt[1]}`);
+    Object.assign(x, { status: 'CHECKED OUT', co: isoL(d), dx: dx[0], cpt: cpt[0], prov, sc });
+    save(); wl(); wl('  Check out complete.  Encounter will be sent to PCE/NPCD.', 'hi');
+    await pressReturn();
+  }
+  async function cancelAppt(x) {
+    const st = apptStatus(x);
+    if (st !== 'FUTURE' && st !== 'NO ACTION TAKEN') { wl(`  Appointment status is ${st}; it cannot be cancelled.`); return pressReturn(); }
+    let by; for (;;) { by = (await ask('Appointments cancelled by (P)atient or (C)linic: ')).toUpperCase(); if (by === '^' || !by) return; if (by[0] === 'P' || by[0] === 'C') break; wl(' ??'); }
+    const reasons = by[0] === 'P' ? ['PATIENT REQUEST', 'TRANSFER TO OTHER CLINIC', 'PATIENT HOSPITALIZED', 'TRAVEL DIFFICULTY', 'OTHER'] : ['CLINIC CANCELLED', 'PROVIDER UNAVAILABLE', 'WEATHER', 'OTHER'];
+    const r = await pickFrom('Select CANCELLATION REASON: ', reasons); if (!r || r === '^') return;
+    const rem = await ask('CANCELLATION REMARKS: '); if (rem === '^') return;
+    x.status = by[0] === 'P' ? 'CANCELLED BY PATIENT' : 'CANCELLED BY CLINIC'; x.cancel = { reason: r, rem, at: isoL(now()) }; save();
+    wl(`  >>> Appointment ${fmDT(apptDate(x))} has been cancelled!`, 'hi');
+    if (await yn('Do you want to rebook', 'NO')) await makeAppt(byId[x.pt], findClinic(x.clinic));
+    else await sleep(500);
+  }
+  async function noShow(x) {
+    const st = apptStatus(x);
+    if (apptDate(x) >= addDays(TODAY, 1)) { wl('  Appointment is in the future; it cannot be marked a no-show.'); return pressReturn(); }
+    if (!['FUTURE', 'NO ACTION TAKEN', 'CHECKED IN'].includes(st)) { wl(`  Appointment status is ${st}.`); return pressReturn(); }
+    if (!await yn(`Are you sure you want to no-show ${byId[x.pt].name} for ${fmDT(apptDate(x))}`, 'NO')) return;
+    x.status = 'NO-SHOW'; save(); wl('  >>> Appointment has been no-showed.', 'hi'); await sleep(600);
+  }
+  async function expandAppt(x) {
+    const p = byId[x.pt];
+    cls(); wl(L('Appointment Expanded Entry', 80), 'rv');
+    wl(` Patient: ${p.name} (${p.l4})`); wl();
+    [['Clinic', x.clinic], ['Date/Time', fmDT(apptDate(x))], ['Length', x.len + ' minutes'], ['Appt Type', x.type], ['Status', apptStatus(x)], ['Other Info', x.info || ''],
+      ['Check In', x.ci ? fmDT(new Date(x.ci)) : ''], ['Check Out', x.co ? fmDT(new Date(x.co)) : ''], ['Provider', x.prov || ''], ['Diagnosis', x.dx ? x.dx + '  ' + ((DX[p.prog].find(d => d[0] === x.dx) || [])[1] || '') : ''],
+      ['Procedure', x.cpt ? x.cpt + '  ' + ((CPT.find(c => c[0] === x.cpt) || [])[1] || '') : ''], ['Cancellation', x.cancel ? `${x.cancel.reason} ${x.cancel.rem || ''} (${fmDT(new Date(x.cancel.at))})` : '']]
+      .forEach(([k, v]) => wl(`  ${R(k, 14)}: ${v}`));
+    wl(); await pressReturn();
+  }
+  async function displayAppts() {
+    const p = await selectPatient(); if (!p) return;
+    const f = await askDate('START DATE: ', { def: 'T', time: 'no' }); if (!f || f === '^') return;
+    const t = await askDate('END DATE: ', { def: 'T+365', time: 'no' }); if (!t || t === '^') return;
+    wl(); wl(`Appointments for ${p.name} (${p.l4})  ${fmS(f)} to ${fmS(t)}`, 'hi'); wl('-'.repeat(79));
+    const l = ptAppts(p.id).filter(x => apptDate(x) >= f && apptDate(x) < addDays(t, 1));
+    if (!l.length) wl('  No appointments found.');
+    l.forEach(x => wl(`  ${L(fmDT(apptDate(x)), 20)} ${L(x.clinic, 26)} ${apptStatus(x)}`));
+    wl(); await pressReturn();
+  }
+  async function clinicList() {
+    const n = await pickFrom('Select CLINIC: ', CLIN_NAMES); if (!n || n === '^') return;
+    const d = await askDate('FOR DATE: ', { def: 'T', time: 'no' }); if (!d || d === '^') return;
+    const l = DB.appts.filter(x => x.clinic === n && apptDate(x).toDateString() === d.toDateString()).sort((a, b) => a.dt.localeCompare(b.dt));
+    wl(); wl(`APPOINTMENT LIST   ${n}   ${fmD(d)}`, 'hi'); wl('-'.repeat(79));
+    wl(' TIME   PATIENT                    SSN-4  STATUS               OTHER INFO');
+    if (!l.length) wl('   No appointments.');
+    l.forEach(x => wl(` ${apptDate(x).getHours().toString().padStart(2, '0')}:${pad(apptDate(x).getMinutes())}  ${L(byId[x.pt].name, 26)} ${byId[x.pt].ssn.slice(-4)}   ${L(apptStatus(x), 20)} ${x.info || ''}`));
+    wl(); await pressReturn();
+  }
+
+  // ===================================================================
+  //  TIU: Progress Notes
+  // ===================================================================
+  function noteHeader(n) { const d = new Date(n.date); return `${fmS(d)}  ${L(n.title, 36)} ${L(n.author, 14)} ${n.signed ? 'completed' : 'unsigned'}`; }
+  function browseNote(p, n) {
+    const d = new Date(n.date);
+    cls();
+    wl(L(`Browse Document              ${lmNow()}`, 80), 'rv');
+    wl(`                 ${p.name}  ${p.ssn}   ${fmDT(d).slice(0, 12)}`); wl();
+    wl(`                         PROGRESS NOTES`); wl(` TITLE: ${n.title}`);
+    wl(`DATE OF NOTE: ${L(fmDT(d), 21)}ENTRY DATE: ${fmDT(d)}`);
+    wl(`      AUTHOR: ${L(n.author, 21)}EXP COSIGNER:`);
+    wl(`     URGENCY: ${' '.repeat(21)}     STATUS: ${n.signed ? 'COMPLETED' : 'UNSIGNED'}`);
+    wl(); (n.text || '').split('\n').forEach(t => wl(t)); wl();
+    if (n.signed) { const s = new Date(n.signedAt || n.date); wl(`/es/ ${AUTHOR_LONG}`); wl(AUTHOR_TITLE); wl(`Signed: ${fmS(s).replace(/\/(\d\d)$/, '/20$1')} ${pad(s.getHours())}:${pad(s.getMinutes())}`); }
+    else wl('  **** UNSIGNED ****', 'hi');
+  }
+  async function lineEditor(text = '') {
+    const out = text ? text.split('\n') : [];
+    wl(); wl('  Enter the note text. Press RETURN on a blank line to finish.', 'dim');
+    if (out.length) { wl('  Existing text:'); out.forEach((t, i) => wl(`${R(i + 1, 3)}>${t}`)); }
+    for (;;) { const t = await ask(`${R(out.length + 1, 3)}>`); if (t === '') break; out.push(t.slice(0, 79)); }
+    for (;;) {
+      const a = (await ask('EDIT Option: ')).toUpperCase();
+      if (a === '' ) return out.join('\n');
+      if (a === '^') return null;
+      if (a === 'L' || a === 'LIST') { out.forEach((t, i) => wl(`${R(i + 1, 3)}>${t}`)); continue; }
+      if (a === 'A' || a === 'ADD') { for (;;) { const t = await ask(`${R(out.length + 1, 3)}>`); if (t === '') break; out.push(t.slice(0, 79)); } continue; }
+      if (a === 'D' || a === 'DELETE') { const n = +(await ask('Delete line: ')); if (n >= 1 && n <= out.length) { out.splice(n - 1, 1); wl('  Deleted.'); } continue; }
+      if (a === 'E' || a === 'EDIT') { const n = +(await ask('Edit line: ')); if (n >= 1 && n <= out.length) { wl(`${R(n, 3)}>${out[n - 1]}`); const t = await ask('Replace with: '); if (t !== '^' && t) out[n - 1] = t.slice(0, 79); } continue; }
+      wl('  Enter L (List), A (Add lines), E (Edit a line), D (Delete a line), or RETURN to finish; ^ to abandon.');
+    }
+  }
+  async function signNote(p, n) {
+    for (let i = 0; i < 3; i++) {
+      const c = await ask('Enter your Current Signature Code: ', { secret: true });
+      if (c === '^' || c === '') { wl('  Not signed.'); return false; }
+      n.signed = true; n.signedAt = new Date(2026, 5, 29, now().getHours(), now().getMinutes()).toISOString(); saveNote(p.id, n);
+      wl('  SIGNATURE VERIFIED..', 'hi'); wl('  (Simulation: any code is accepted. Do not enter a real code.)', 'dim'); return true;
+    }
+  }
+  async function entryOfNote(pp) {
+    const p = pp || await selectPatient(); if (!p) return;
+    const title = await pickFrom('TITLE: ', TITLES); if (!title || title === '^') return;
+    const ap = ptAppts(p.id).filter(x => apptDate(x).toDateString() === TODAY.toDateString());
+    wl(); wl('Patient Location:  ' + (ap[0] ? ap[0].clinic : 'HT CC 685 TELEPHONE'));
+    const d = await askDate('Date/time of Visit: ', { def: 'NOW', time: 'req', notFuture: true }); if (!d || d === '^') return;
+    wl(); wl(`Creating new progress note...`); wl(`  Patient Location:  ${ap[0] ? ap[0].clinic : 'HT CC 685 TELEPHONE'}`); wl(`  Date/time of Visit: ${fmDT(d)}`);
+    const text = await lineEditor(); if (text == null || !text.trim()) { wl('  No text entered. Document deleted.'); return pressReturn(); }
+    const note = { id: `${p.id}-${Date.now()}`, title, date: d.toISOString(), author: AUTHOR, text, signed: false };
+    saveNote(p.id, note); wl(); wl('Saving ' + title + ' with changes...', 'hi');
+    const s = await yn('Would you like to sign this document now', 'YES');
+    if (s) await signNote(p, note); else wl('  Document saved unsigned. It will appear in CPRS as unsigned.');
+    await pressReturn();
+  }
+  async function reviewByPatient(pp, onlyUnsigned) {
+    const p = pp || await selectPatient(); if (!p) return;
+    const list = () => notesFor(p.id).filter(n => !onlyUnsigned || !n.signed);
+    const sel = async n => { const l = list(); const k = await pickItem(n, l.length, 'Select Document'); return k ? l[k - 1] : null; };
+    await listMan({
+      title: 'Progress Notes',
+      header: () => [`${' '.repeat(10)}${p.name}  ${p.ssn}${' '.repeat(10)}${list().length} documents`, `${' '.repeat(26)}by REFERENCE DATE  (${onlyUnsigned ? 'UNSIGNED' : 'ALL'})`, Object.assign(new String(L('     Ref Date  Title                                Author         Status', 80)), { rv: true })],
+      rows: () => list().map((n, i) => ` ${R(i + 1, 3)} ${noteHeader(n)}`),
+      actions: ['BR  Browse', 'SI  Sign/Cosign', 'ED  Edit', 'DE  Delete Document', 'MA  Make Addendum', 'NW  New Note', 'Q   Quit'],
+      fns: {
+        BR: Object.assign(async n => { const d = await sel(n); if (!d) return; browseNote(p, d); wl(); await pressReturn(); }, { label: 'Browse' }),
+        SI: Object.assign(async n => { const d = await sel(n); if (!d) return; if (d.signed) { wl('  This document has already been signed.'); return pressReturn(); } browseNote(p, d); wl(); if (await yn('Sign this document', 'YES')) await signNote(p, d); await pressReturn(); }, { label: 'Sign/Cosign' }),
+        ED: Object.assign(async n => { const d = await sel(n); if (!d) return; if (d.signed) { wl('  Signed documents cannot be edited. Use Make Addendum.'); return pressReturn(); } const t = await lineEditor(d.text); if (t != null) { d.text = t; saveNote(p.id, d); wl('  Saved.'); } await sleep(500); }, { label: 'Edit' }),
+        DE: Object.assign(async n => { const d = await sel(n); if (!d) return; if (d.signed) { wl('  Signed documents cannot be deleted.'); return pressReturn(); } if (await yn(`Delete ${d.title}`, 'NO')) { deleteNote(p.id, d.id); wl('  Document deleted.'); } await sleep(500); }, { label: 'Delete Document' }),
+        MA: Object.assign(async n => { const d = await sel(n); if (!d) return; if (!d.signed) { wl('  Addenda can only be made to signed documents.'); return pressReturn(); } wl(`  Addendum to ${d.title} (${fmS(new Date(d.date))})`); const t = await lineEditor(); if (!t) return; const add = { id: `${p.id}-${Date.now()}`, title: 'Addendum to ' + d.title, date: new Date(2026, 5, 29, now().getHours(), now().getMinutes()).toISOString(), author: AUTHOR, text: t, signed: false }; saveNote(p.id, add); if (await yn('Would you like to sign this addendum now', 'YES')) await signNote(p, add); await pressReturn(); }, { label: 'Make Addendum' }),
+        NW: Object.assign(async () => { await entryOfNote(p); }, { label: 'New Note' })
+      }
+    });
+  }
+  async function unsignedAcross() {
+    const all = P.flatMap(p => notesFor(p.id).filter(n => !n.signed).map(n => ({ p, n })));
+    wl(); wl(`UNSIGNED DOCUMENTS FOR ${AUTHOR}`, 'hi'); wl('-'.repeat(79));
+    if (!all.length) { wl('  No unsigned documents.'); return pressReturn(); }
+    all.forEach((x, i) => wl(` ${R(i + 1, 2)}  ${L(x.p.name, 20)} ${x.p.l4}  ${fmS(new Date(x.n.date))}  ${x.n.title}`));
+    const k = +(await ask(`Select document to review and sign (1-${all.length}): `)); if (!(k >= 1 && k <= all.length)) return;
+    const { p, n } = all[k - 1]; browseNote(p, n); wl(); if (await yn('Sign this document', 'YES')) await signNote(p, n); await pressReturn();
+  }
+
+  // ===================================================================
+  //  Consult Tracking
+  // ===================================================================
+  const CSTAT = { p: 'PENDING', a: 'ACTIVE', s: 'SCHEDULED', c: 'COMPLETE', dc: 'DISCONTINUED' };
+  async function consultTracking(pp) {
+    const p = pp || await selectPatient(); if (!p) return;
+    const list = () => DB.consults.filter(c => c.pt === p.id).sort((a, b) => b.date.localeCompare(a.date));
+    const sel = async n => { const l = list(); const k = await pickItem(n, l.length, 'Select Consult'); return k ? l[k - 1] : null; };
+    const logIt = (c, act, cm = '') => { c.log.push([isoL(now()), act, AUTHOR, cm]); save(); };
+    await listMan({
+      title: 'Consult Tracking',
+      header: () => [`${p.name}  ${p.ssn}${' '.repeat(24)}DOB: ${fmD(p.dob)}`, '', Object.assign(new String(L('  #  Request Date  Sta  Consult Service                    Consult#', 80)), { rv: true })],
+      rows: () => list().map((c, i) => ` ${R(i + 1, 2)}  ${fmS(new Date(c.date))}      ${L(c.status, 3)}  ${L(c.svc + ' Cons', 34)} ${c.no}`),
+      actions: ['RC  Receive', 'SC  Schedule', 'CM  Add Comment', 'CT  Complete/Update', 'DC  Discontinue', 'DD  Detailed Display', 'PF  Print Form 513', 'Q   Quit'],
+      fns: {
+        RC: Object.assign(async n => { const c = await sel(n); if (!c) return; if (c.status !== 'p') { wl(`  Consult is ${CSTAT[c.status]}; only PENDING consults can be received.`); return pressReturn(); } c.status = 'a'; logIt(c, 'RECEIVED'); wl('  Consult received. Status is now ACTIVE.'); await sleep(700); }, { label: 'Receive' }),
+        SC: Object.assign(async n => { const c = await sel(n); if (!c) return; if (!['p', 'a'].includes(c.status)) { wl(`  Consult is ${CSTAT[c.status]}.`); return pressReturn(); } const cm = await ask('Scheduling comment: '); if (cm === '^') return; c.status = 's'; logIt(c, 'SCHEDULED', cm); wl('  Consult status is now SCHEDULED.'); await sleep(700); }, { label: 'Schedule' }),
+        CM: Object.assign(async n => { const c = await sel(n); if (!c) return; const cm = await ask('Comment: '); if (!cm || cm === '^') return; logIt(c, 'ADDED COMMENT', cm); wl('  Comment added.'); await sleep(600); }, { label: 'Add Comment' }),
+        CT: Object.assign(async n => {
+          const c = await sel(n); if (!c) return; if (['c', 'dc'].includes(c.status)) { wl(`  Consult is already ${CSTAT[c.status]}.`); return pressReturn(); }
+          const docs = notesFor(p.id).filter(d => d.signed).slice(0, 9);
+          wl('  Select a signed progress note to link as the consult result:');
+          docs.forEach((d, i) => wl(`     ${i + 1}   ${noteHeader(d)}`));
+          const k = +(await ask(`Select document (1-${docs.length}) or RETURN to write a new note: `));
+          let doc = docs[k - 1];
+          if (!doc) { await entryOfNote(p); doc = notesFor(p.id)[0]; if (!doc || !doc.signed) { wl('  A signed note is required to complete the consult.'); return pressReturn(); } }
+          c.status = 'c'; logIt(c, 'COMPLETE/UPDATE', `Note: ${doc.title} (${fmS(new Date(doc.date))})`); wl('  Consult completed.', 'hi'); await sleep(800);
+        }, { label: 'Complete/Update' }),
+        DC: Object.assign(async n => { const c = await sel(n); if (!c) return; if (['c', 'dc'].includes(c.status)) { wl(`  Consult is ${CSTAT[c.status]}.`); return pressReturn(); } const why = await ask('Reason for discontinuing: '); if (!why || why === '^') return; if (!await yn('Discontinue this consult', 'NO')) return; c.status = 'dc'; logIt(c, 'DISCONTINUED', why); wl('  Consult discontinued.'); await sleep(700); }, { label: 'Discontinue' }),
+        DD: Object.assign(async n => { const c = await sel(n); if (!c) return; consultDetail(p, c); wl(); await pressReturn(); }, { label: 'Detailed Display' }),
+        PF: Object.assign(async n => { const c = await sel(n); if (!c) return; consultDetail(p, c, true); wl(); await pressReturn(); }, { label: 'Print Form 513' })
+      }
+    });
+  }
+  function consultDetail(p, c, sf513) {
+    cls();
+    if (sf513) { wl(L('MEDICAL RECORD          |    CONSULTATION SHEET (SF 513)', 80), 'rv'); }
+    else wl(L('Consult Detailed Display', 80), 'rv');
+    wl(`Current Pat. Status:  Outpatient`); wl(`Primary Eligibility:  ${p.elig}`); wl();
+    wl(`Order Information`); wl(`To Service:           ${c.svc}`); wl(`From Service:         PRIMARY CARE`); wl(`Requesting Provider:  ${c.from}`);
+    wl(`Service is to be rendered on an OUTPATIENT basis`); wl(`Place:                ${c.place}`); wl(`Urgency:              ${c.urg}`);
+    wl(`Orderable Item:       ${c.svc}`); wl(`Consult:              Consult Request`);
+    wl(); wl('Reason For Request:'); c.reason.split('\n').forEach(t => wl('  ' + t)); wl();
+    wl(`Inter-facility Information`); wl(`This is not an inter-facility consult request.`); wl();
+    wl(`Status:               ${CSTAT[c.status]}`); wl(`Last Action:          ${c.log[c.log.length - 1][1]}`); wl();
+    wl('Facility'); wl(' Activity                   Date/Time/Zone      Responsible Person  Entered By'); wl('-'.repeat(79));
+    c.log.forEach(([d, act, who, cm]) => { wl(`${L(act, 27)}${L(fmS(new Date(d)) + ' ' + d.slice(11, 16), 20)}${L(who, 19)} ${who.slice(0, 13)}`); if (cm) wl('    ' + cm); });
+    wl(); wl(`Consult #: ${c.no}      ${p.name}  ${p.ssn}`);
+  }
+
+  // ===================================================================
+  //  Home Telehealth (approximated menus)
+  // ===================================================================
+  const COC = [['CCM', 'CHRONIC CARE MANAGEMENT'], ['ACM', 'ACUTE CARE MANAGEMENT'], ['HP/DP', 'HEALTH PROMOTION/DISEASE PREVENTION'], ['NIC', 'NON-INSTITUTIONAL CARE']];
+  const INACT = ['GOALS MET', 'PATIENT DECLINED FURTHER SERVICES', 'NON-ADHERENT TO PROGRAM', 'TRANSFERRED TO ANOTHER VA FACILITY', 'ADMITTED TO LONG TERM CARE', 'MOVED OUT OF SERVICE AREA', 'DECEASED', 'OTHER'];
+  const VENDORS = ['CARECONSOLE', 'OTHER APPROVED VENDOR'];
+  function hl7Show(p, kind, id) {
+    wl(); wl(`  Sending HL7 ${kind} message to vendor...`, 'dim');
+    wl(`  MSH|^~\\&|DG HOME TELEHEALTH|${STA}^DEMO.MED.VA.GOV^DNS|CARECONSOLE|...|${now().getFullYear()}${pad(now().getMonth() + 1)}${pad(now().getDate())}||ADT^${kind === 'ACTIVATION' ? 'A04' : 'A03'}|${STA}${id}|P|2.4`, 'dim');
+    wl(`  PID|1||${p.ssn9}^^^USSSA^SS||${p.last}^${p.first}||${p.dob.getFullYear()}${pad(p.dob.getMonth() + 1)}${pad(p.dob.getDate())}|${p.sex}`, 'dim');
+    wl(`  ...Message #${STA}${id} sent.  ACK received from vendor: AA (Application Accept)`, 'grn');
+  }
+  async function htActivate() {
+    const p = await selectPatient(); if (!p) return;
+    const cur = DB.ht[p.id];
+    if (cur && cur.status === 'ACTIVE') { wl(`  ${p.name} is already ACTIVE in Home Telehealth (${cur.vendor}, ${cur.coc}) since ${fmD(new Date(cur.hist.filter(h => h.act === 'ACTIVATION').pop().date))}.`); return pressReturn(); }
+    const cons = DB.consults.filter(c => c.pt === p.id && c.svc.startsWith('HOME TELEHEALTH'));
+    if (cons.length) { wl('  Home Telehealth consults:'); cons.forEach((c, i) => wl(`     ${i + 1}   #${c.no}  ${fmS(new Date(c.date))}  ${c.svc}  ${CSTAT[c.status]}`)); }
+    const cn = cons.length ? +(await ask('Select CONSULT: ', { def: 1 })) : 0;
+    const vendor = await pickFrom('VENDOR: ', VENDORS, { def: cur ? cur.vendor : 'CARECONSOLE' }); if (!vendor || vendor === '^') return;
+    COC.forEach(c => wl(`     ${L(c[0], 6)} ${c[1]}`));
+    const coc = await pickFrom('CATEGORY OF CARE: ', COC.map(c => c[0]), { def: p.prog === 'WM' ? 'HP/DP' : 'CCM' }); if (!coc || coc === '^') return;
+    const cc = (await ask('CARE COORDINATOR: ', { def: AUTHOR })).toUpperCase(); if (cc === '^') return;
+    const d = await askDate('ACTIVATION DATE: ', { def: 'T', time: 'no', notFuture: true }); if (!d || d === '^') return;
+    if (!await yn(`Activate ${p.name} with ${vendor}`, 'YES')) return;
+    const id = DB.hl7++;
+    DB.ht[p.id] = Object.assign(cur || { hist: [] }, { status: 'ACTIVE', vendor, coc, cc, consult: cons[cn - 1] ? cons[cn - 1].no : null });
+    DB.ht[p.id].hist.push({ act: 'ACTIVATION', date: isoL(d), by: AUTHOR, coc, hl7: id, ack: 'AA' }); save();
+    hl7Show(p, 'ACTIVATION', id);
+    wl(`  ${p.name} has been ACTIVATED in Home Telehealth.`, 'hi'); await pressReturn();
+  }
+  async function htInactivate() {
+    const p = await selectPatient(); if (!p) return;
+    const cur = DB.ht[p.id];
+    if (!cur || cur.status !== 'ACTIVE') { wl(`  ${p.name} is not active in Home Telehealth.`); return pressReturn(); }
+    wl(`  Currently ACTIVE with ${cur.vendor}, category of care ${cur.coc}.`);
+    INACT.forEach((r, i) => wl(`     ${R(i + 1, 2)}   ${r}`));
+    let why; for (;;) { const a = (await ask('INACTIVATION REASON: ')).toUpperCase(); if (!a || a === '^') return; why = INACT[+a - 1] || INACT.find(r => r.startsWith(a)); if (why) break; wl(' ??'); }
+    const d = await askDate('INACTIVATION DATE: ', { def: 'T', time: 'no', notFuture: true }); if (!d || d === '^') return;
+    if (!await yn(`Inactivate ${p.name}`, 'NO')) return;
+    const id = DB.hl7++;
+    cur.status = 'INACTIVE'; cur.hist.push({ act: 'INACTIVATION', date: isoL(d), by: AUTHOR, reason: why, hl7: id, ack: 'AA' }); save();
+    hl7Show(p, 'INACTIVATION', id);
+    wl(`  ${p.name} has been INACTIVATED in Home Telehealth.`, 'hi'); wl('  Remember to arrange return of equipment (ROES: HT-RET prepaid return kit).', 'dim'); await pressReturn();
+  }
+  async function htInquiry() {
+    const p = await selectPatient(); if (!p) return;
+    const h = DB.ht[p.id];
+    wl(); wl(`HOME TELEHEALTH PATIENT INQUIRY: ${p.name} (${p.l4})`, 'hi'); wl('-'.repeat(79));
+    if (!h) { wl('  Patient has never been enrolled in Home Telehealth.'); return pressReturn(); }
+    wl(`  Current Status: ${h.status}`); wl(`  Vendor: ${h.vendor}`); wl(`  Category of Care: ${h.coc}  ${(COC.find(c => c[0] === h.coc) || [])[1] || ''}`);
+    wl(`  Care Coordinator: ${h.cc}`); wl(`  Program: ${progName(p)}`); wl(`  Consult: ${h.consult ? '#' + h.consult : ''}`);
+    wl(); wl('  Date        Action        COC     HL7 Msg#    ACK  By            Reason'); wl('  ' + '-'.repeat(77));
+    h.hist.forEach(x => wl(`  ${L(fmS(new Date(x.date)), 11)} ${L(x.act, 13)} ${L(x.coc || '', 7)} ${L(STA + x.hl7, 11)} ${L(x.ack, 4)} ${L(x.by, 13)} ${x.reason || ''}`));
+    wl(); await pressReturn();
+  }
+  async function htCensus() {
+    const act = sorted.filter(p => DB.ht[p.id] && DB.ht[p.id].status === 'ACTIVE');
+    wl(); wl(`HOME TELEHEALTH CENSUS - ${STATION} (${STA})                 ${fmD(TODAY)}`, 'hi');
+    wl(`Care Coordinator: ${AUTHOR}`); wl('-'.repeat(79));
+    wl(' PATIENT                 ID     COC    VENDOR        ACTIVATED  DAYS  NEXT APPT');
+    act.forEach(p => {
+      const h = DB.ht[p.id], a = new Date(h.hist.filter(x => x.act === 'ACTIVATION').pop().date), days = Math.round((TODAY - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 864e5);
+      const nx = ptAppts(p.id).find(x => apptStatus(x) === 'FUTURE');
+      wl(` ${L(p.name, 22)}  ${p.l4}  ${L(h.coc, 6)} ${L(h.vendor, 13)} ${fmS(a)}   ${R(days, 4)}  ${nx ? fmS(apptDate(nx)) : ''}`);
+    });
+    wl('-'.repeat(79));
+    const by = c => act.filter(p => DB.ht[p.id].coc === c).length;
+    wl(` TOTAL ACTIVE: ${act.length}     CCM: ${by('CCM')}   ACM: ${by('ACM')}   HP/DP: ${by('HP/DP')}   NIC: ${by('NIC')}`);
+    wl(); await pressReturn();
+  }
+  async function htActReport() {
+    const f = await askDate('START DATE: ', { def: 'T-30', time: 'no' }); if (!f || f === '^') return;
+    const t = await askDate('END DATE: ', { def: 'T', time: 'no' }); if (!t || t === '^') return;
+    const rows = P.flatMap(p => (DB.ht[p.id]?.hist || []).filter(x => new Date(x.date) >= f && new Date(x.date) < addDays(t, 1)).map(x => ({ p, x })));
+    wl(); wl(`HOME TELEHEALTH ACTIVATIONS/INACTIVATIONS  ${fmS(f)} - ${fmS(t)}`, 'hi'); wl('-'.repeat(79));
+    if (!rows.length) wl('  No activations or inactivations in this date range.');
+    rows.sort((a, b) => a.x.date.localeCompare(b.x.date)).forEach(({ p, x }) => wl(` ${fmS(new Date(x.date))}  ${L(x.act, 13)} ${L(p.name, 22)} ${p.l4}  ${L(x.coc || '', 6)} ${x.reason || ''}`));
+    wl(); await pressReturn();
+  }
+
+  // ===================================================================
+  //  Sign-on and primary menu
+  // ===================================================================
+  const MENU_HT = { title: 'Home Telehealth', items: [
+    ['1', 'Home Telehealth Patient Activation', htActivate],
+    ['2', 'Home Telehealth Patient Inactivation', htInactivate],
+    ['3', 'Home Telehealth Patient Inquiry', htInquiry],
+    ['4', 'Home Telehealth Census Report', htCensus],
+    ['5', 'Activation/Inactivation Report', htActReport]] };
+  const MENU_SD = { title: 'Scheduling Menu', items: [
+    ['AM', 'Appointment Management', apptMgmt],
+    ['MA', 'Make Appointment', async () => { const p = await selectPatient(); if (p) await makeAppt(p); }],
+    ['DA', 'Display Appointments', displayAppts],
+    ['AL', 'Appointment List', clinicList]] };
+  const MENU_TIU = { title: 'Progress Notes User Menu', items: [
+    ['1', 'Entry of Progress Note', () => entryOfNote()],
+    ['2', 'Review Progress Notes by Patient', () => reviewByPatient()],
+    ['3', 'Review Unsigned Progress Notes', unsignedAcross],
+    ['4', 'Individual Patient Document', () => reviewByPatient()]] };
+  const MENU_TOP = [
+    ['HT', 'Home Telehealth Menu', MENU_HT],
+    ['SD', 'Scheduling Menu', MENU_SD],
+    ['PI', 'Patient Inquiry', patientInquiry],
+    ['TIU', 'Progress Notes User Menu', MENU_TIU],
+    ['CT', 'Consult Tracking', () => consultTracking()]
+  ];
+
+  async function session() {
+    cls();
+    wl(); wl(`Volume set: ROU:DEMO  UCI: VAH  Device: /dev/pts/14`); wl();
+    wl(`                ${'*'.repeat(46)}`, 'hi');
+    wl(`                *     ${L('VA DEMO HEALTH CARE SYSTEM (' + STA + ')', 39)}*`, 'hi');
+    wl(`                *     ${L('VistA - SIMULATION FOR DEMONSTRATION', 39)}*`, 'hi');
+    wl(`                ${'*'.repeat(46)}`, 'hi'); wl();
+    wl('  This is a U.S. Government information system. Use is restricted to');
+    wl('  authorized users and is subject to monitoring.  (Simulated banner.)'); wl();
+    wl('  Simulation: any access and verify codes are accepted. Do not enter real codes.', 'dim'); wl();
+    for (let i = 0; ; i++) {
+      const a = await ask('ACCESS CODE: ', { secret: true }); if (a === '^') return bye();
+      const v = await ask('VERIFY CODE: ', { secret: true }); if (v === '^') return bye();
+      if (a && v) break;
+      wl(); wl('Not a valid ACCESS CODE/VERIFY CODE pair.'); if (i >= 2) return bye();
+    }
+    const h = now().getHours();
+    wl(); wl(`Good ${h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'} ${AUTHOR}`);
+    wl(`     You last signed on today at 07:58`);
+    wl(); const div = await ask('Select DIVISION: ', { def: `${STATION}  ${STA}` }); if (div === '^') return bye();
+    wl(); wl('Terminal Type set to: C-VT320'); wl();
+    const r = await menu('HOME TELEHEALTH CC MENU', MENU_TOP, true);
+    return bye(r);
+  }
+  async function bye() {
+    const t = now();
+    wl(); wl(`Logged out at ${fmDT(t).replace(/(\w{3}) (\d\d), (\d{4})@/, (m, a, b, c) => `${a[0]}${a.slice(1).toLowerCase()} ${b}, ${c} `)}`); wl();
+    wl('[Session closed. Press RETURN to connect again.]', 'dim');
+    await readLine(false); return session();
+  }
+
+  $('term').focus();
+  session();
+})();
+</script>
+</body>
+</html>
