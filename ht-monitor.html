@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+// Opens only after the VA desktop has been unlocked with the PIN in this browser tab
+(function () { var ok = false; try { ok = sessionStorage.getItem('ccUnlocked') === '1'; } catch (e) { }
+  if (!ok) { document.documentElement.style.display = 'none'; if (window.top === window) location.replace('va-desktop.html'); } })();
+</script>
+<title>HT Monitor Tool - Reporting Services</title>
+<!--
+  Simulation of a VISN Data Warehouse (SQL Server Reporting Services) report:
+  "HT Monitor Tool". Lists the Home Telehealth patients of a care coordinator
+  with their next appointment, recent HT notes, category of care and recent HT
+  encounters. Built from the shared mock data: appointments and HT enrollment
+  from the VistA simulation (localStorage "vistaDB") and signed progress notes
+  from CPRS / VistA TIU (localStorage "cprsNotes"). All patients are synthetic.
+-->
+<style>
+  html, body { margin: 0; height: 100%; font-family: "Segoe UI", Tahoma, Arial, sans-serif; font-size: 12px; color: #222; background: #fff; }
+  body { display: flex; flex-direction: column; }
+  .crumb { padding: 6px 10px; font-size: 12px; color: #444; border-bottom: 1px solid #ddd; }
+  .crumb a { color: #1f5fa8; text-decoration: none; cursor: pointer; } .crumb a:hover { text-decoration: underline; }
+  .params { display: flex; gap: 18px; align-items: flex-end; padding: 8px 10px; background: #f3f3f3; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
+  .params label { display: block; font-size: 11px; color: #444; margin-bottom: 2px; }
+  .params select { font-size: 12px; padding: 2px; min-width: 180px; }
+  .params .go { margin-left: auto; padding: 4px 16px; background: #1f5fa8; color: #fff; border: 1px solid #174a85; cursor: pointer; }
+  .tb { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-bottom: 1px solid #ccc; background: #fafafa; position: relative; }
+  .tb button { background: none; border: 1px solid transparent; font-size: 14px; padding: 1px 5px; cursor: pointer; color: #333; }
+  .tb button:hover { border-color: #aac; background: #eef; }
+  .tb button:disabled { color: #bbb; cursor: default; background: none; border-color: transparent; }
+  .tb .sep { width: 1px; height: 18px; background: #ccc; margin: 0 6px; }
+  .tb input[type=text] { font-size: 12px; width: 120px; }
+  .tb .pg { width: 26px; text-align: center; }
+  .tb a { color: #1f5fa8; cursor: pointer; font-size: 12px; }
+  .tb .act { font-size: 12px; color: #1f5fa8; }
+  .menu { position: absolute; top: 26px; left: 8px; background: #fff; border: 1px solid #999; box-shadow: 2px 2px 6px rgba(0,0,0,.2); z-index: 5; min-width: 180px; }
+  .menu div { padding: 4px 12px; cursor: pointer; } .menu div:hover { background: #dbe8f7; }
+  .menu .h { font-weight: bold; color: #555; cursor: default; background: none !important; }
+  #view { flex: 1; overflow: auto; background: #fff; }
+  #rep { padding: 12px 14px; transform-origin: 0 0; display: inline-block; min-width: 1200px; }
+  .rHead { display: grid; grid-template-columns: 260px 1fr auto; align-items: start; gap: 10px; margin-bottom: 8px; }
+  .rTitle { font-size: 20px; font-weight: bold; color: #1f4e8c; }
+  .rFor { font-size: 12px; line-height: 1.4; }
+  .rUpd { font-size: 12px; text-align: right; }
+  .rDoc { color: #1f5fa8; text-decoration: underline; cursor: pointer; }
+  .rPage { text-align: right; font-size: 12px; margin: 6px 0; }
+  table.r { border-collapse: collapse; width: 100%; }
+  table.r th { background: #4f81bd; color: #fff; text-align: left; font-weight: bold; padding: 4px 4px; border: 1px solid #9ab; vertical-align: top; cursor: pointer; white-space: nowrap; }
+  table.r th .s { float: right; font-size: 10px; opacity: .8; margin-left: 6px; }
+  table.r td { border: 1px solid #c8c8c8; padding: 4px; vertical-align: top; }
+  table.r td.w { min-width: 150px; max-width: 200px; }
+  table.r tr:hover td { background: #f3f7fc; }
+  .late { color: #c00000; font-weight: bold; }
+  .hit { background: #ffff00; }
+  .hit.cur { background: #ff9632; }
+  .sim { color: #a00; font-size: 10px; margin-top: 8px; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.3); display: none; align-items: center; justify-content: center; z-index: 10; }
+  .modal.open { display: flex; }
+  .modal .box { background: #fff; width: 640px; max-height: 80vh; overflow: auto; padding: 14px 18px; border: 1px solid #888; }
+  .modal h3 { margin: 0 0 8px; color: #1f4e8c; }
+  .modal dt { font-weight: bold; margin-top: 6px; } .modal dd { margin: 0 0 0 12px; }
+  .modal button { margin-top: 12px; }
+  @media print { .crumb, .params, .tb { display: none; } #view { overflow: visible; } #rep { transform: none !important; } }
+</style>
+</head>
+<body>
+<div class="crumb"><a data-act="na">VISN 00 Data Warehouse</a> &gt; <a data-act="na">Reporting_Services</a> &gt; <a data-act="na">Clinical_Reports</a> &gt; <a data-act="na">HT_Reports</a></div>
+<div class="params">
+  <div><label>Facility</label><select id="pSta"><option>(999) VA DEMO HCS</option></select></div>
+  <div><label>HT Care Coordinator</label><select id="pCC"><option value="BORNE,BEN">BORNE,BEN</option><option value="BREWSTER,KATHY">BREWSTER,KATHY</option><option value="ALL">(All)</option></select></div>
+  <div><label>Program</label><select id="pProg"><option value="ALL">(All)</option><option value="HTN">Hypertension</option><option value="HF">Heart Failure</option><option value="WM">MOVE! Weight Management</option></select></div>
+  <button class="go" id="pGo">View Report</button>
+</div>
+<div class="tb">
+  <span class="act" id="bAct" style="cursor:pointer">Actions &#9662;</span><span class="sep"></span>
+  <button id="bRef" title="Refresh">&#8635;</button><span class="sep"></span>
+  <button id="bFirst" title="First Page">|&#9664;</button><button id="bPrev" title="Previous Page">&#9664;</button>
+  <input type="text" class="pg" id="bPg" value="1"> of <span id="bPgs">1</span>
+  <button id="bNext" title="Next Page">&#9654;</button><button id="bLast" title="Last Page">&#9654;|</button><span class="sep"></span>
+  <button id="bBack" title="Back to Parent Report" disabled>&#8630;</button><span class="sep"></span>
+  <input type="text" id="bFind"> <a id="bFindGo">Find</a> | <a id="bFindNext">Next</a><span class="sep"></span>
+  <select id="bZoom"><option value="1">100%</option><option value="0.75">75%</option><option value="0.5">50%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="w">Page Width</option></select>
+  <div class="menu" id="actMenu" hidden><div class="h">Export</div><div data-x="csv">CSV (comma delimited)</div><div data-x="xls">Excel</div><div data-x="pdf">PDF (Print)</div><div data-x="word">Word</div></div>
+</div>
+<div id="view"><div id="rep"></div></div>
+<div class="modal" id="doc"><div class="box"><h3>HT Monitor Tool &ndash; Documentation</h3>
+  <p>Lists active Home Telehealth patients for the selected facility and HT Care Coordinator. Data refreshes nightly (simulated: as of 6/29/2026 12AM, recalculated each time you view the report).</p>
+  <dl>
+    <dt>Next Appt / Next Appt Clinic</dt><dd>Earliest future appointment in any clinic, from VistA Scheduling.</dd>
+    <dt>Next Appts Count</dt><dd>Number of future appointments.</dd>
+    <dt>180 Day Note</dt><dd>Most recent signed HT assessment, treatment plan or periodic evaluation note in the last 180 days.</dd>
+    <dt>COC Status / COC Date</dt><dd>Home Telehealth category of care and status from the VistA HT patient file, and the date of the last activation or category of care change.</dd>
+    <dt>Past 3 HT Interventions</dt><dd>Dates of the last three checked-out appointments in Home Telehealth clinics.</dd>
+    <dt>HT Monthly Note</dt><dd>Date of the most recent signed HOME TELEHEALTH CARE COORDINATION NOTE (monthly contact).</dd>
+    <dt>L2Note</dt><dd>Most recent signed Home Telehealth note of any title.</dd>
+    <dt>Days Since HT Note</dt><dd>Days from the most recent signed HT note to the report date. Shown in red when more than 30 days.</dd>
+  </dl>
+  <button id="docClose">Close</button></div></div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const getJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const pad = n => String(n).padStart(2, '0');
+  const TODAY = new Date(2026, 5, 29), AUTHOR = 'BORNE,BEN';
+  const PATH = '/Reports/report/Clinical_Reports/HT_Reports/HT%20Monitor%20Tool';
+
+  // Same synthetic patients as the VistA / CPRS simulations
+  const P = [
+    ['robert', 'HALE', 'ROBERT', '1001', [1958, 2, 14], 'HTN'], ['david', 'MORENO', 'DAVID', '1002', [1961, 7, 2], 'HTN'],
+    ['kyle', 'BENNETT', 'KYLE', '1003', [1966, 10, 23], 'HTN'], ['brad', 'FOSTER', 'BRAD', '1004', [1954, 4, 9], 'HF'],
+    ['miles', 'CARTER', 'MILES', '1005', [1952, 0, 30], 'HF'], ['phil', 'DAWSON', 'PHIL', '1006', [1957, 8, 17], 'HF'],
+    ['bob', 'TURNER', 'BOB', '1007', [1963, 5, 6], 'WM'], ['michelle', 'REYES', 'MICHELLE', '1008', [1970, 11, 1], 'WM'],
+    ['sarah', 'COLLINS', 'SARAH', '1009', [1968, 3, 19], 'WM']
+  ].map((r, i) => ({ id: r[0], last: r[1], first: r[2], l4: r[3], dob: new Date(...r[4]), prog: r[5], i }));
+
+  // ---------- Shared data (falls back to the same seed the VistA / CPRS windows use) ----------
+  function vistaDB() {
+    const db = getJson('vistaDB', null); if (db && db.appts) return db;
+    const out = { appts: [], ht: {} };
+    P.forEach((p, i) => {
+      const coc = p.prog === 'WM' ? 'HP/DP' : 'CCM';
+      out.appts.push({ pt: p.id, clinic: 'HT INTAKE 685', dt: '2026-01-02T10:00', status: 'CHECKED OUT' });
+      out.appts.push({ pt: p.id, clinic: 'HT CC 685 TELEPHONE', dt: '2026-04-15T14:00', status: 'CHECKED OUT' });
+      out.appts.push({ pt: p.id, clinic: 'HT CC 685 TELEPHONE', dt: `2026-07-${pad(6 + i)}T${pad(9 + (i % 5))}:${i % 2 ? '20' : '00'}`, status: 'FUTURE' });
+      out.ht[p.id] = { status: 'ACTIVE', coc, cc: AUTHOR, hist: [{ act: 'ACTIVATION', date: '2026-01-02T10:15', coc }] };
+    });
+    out.appts.push({ pt: 'robert', clinic: 'HT CC 685 TELEPHONE', dt: '2026-06-29T10:30', status: 'FUTURE' });
+    out.appts.push({ pt: 'brad', clinic: 'HT CC 685 TELEPHONE', dt: '2026-06-29T13:00', status: 'FUTURE' });
+    out.appts.push({ pt: 'sarah', clinic: 'HT CC 179 VIDEO', dt: '2026-06-29T09:00', status: 'CHECKED IN' });
+    out.appts.push({ pt: 'phil', clinic: 'HT CC 685 TELEPHONE', dt: '2026-06-26T11:00', status: 'FUTURE' });
+    return out;
+  }
+  function cprsNotes() {
+    const n = getJson('cprsNotes', null); if (n) return n;
+    const out = {};
+    P.forEach(p => { out[p.id] = [
+      { title: 'HOME TELEHEALTH NOTE', date: new Date(2026, 0, 2, 10, 12).toISOString(), signed: true },
+      { title: 'RPM-HT PERIODIC EVALUATION NOTE', date: new Date(2026, 3, 15, 14, 5).toISOString(), signed: true }]; });
+    return out;
+  }
+
+  // ---------- Build rows ----------
+  const isHtNote = t => /^(HOME TELEHEALTH|RPM-HT|MOVE! TELEHEALTH)/.test(t);
+  const is180 = t => /PERIODIC EVALUATION|ASSESSMENT|TREATMENT PLAN|^HOME TELEHEALTH NOTE$/.test(t);
+  const isHtClinic = c => /^HT /.test(c);
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const mdyT = d => { let h = d.getHours(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${h}:${pad(d.getMinutes())}:00 ${ap}`; };
+  const mdy = d => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  const age = d => { let a = TODAY.getFullYear() - d.getFullYear(); if (TODAY < new Date(2026, d.getMonth(), d.getDate())) a--; return a; };
+  const days = d => Math.floor((TODAY - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+
+  function rows() {
+    const db = vistaDB(), notes = cprsNotes(), cc = $('pCC').value, prog = $('pProg').value;
+    return P.map(p => {
+      const ht = db.ht && db.ht[p.id];
+      if (!ht || ht.status !== 'ACTIVE') return null;
+      if (cc !== 'ALL' && (ht.cc || AUTHOR) !== cc) return null;
+      if (prog !== 'ALL' && p.prog !== prog) return null;
+      const ap = db.appts.filter(a => a.pt === p.id).map(a => ({ ...a, d: new Date(a.dt) }));
+      const fut = ap.filter(a => a.status === 'FUTURE' && a.d >= TODAY).sort((a, b) => a.d - b.d);
+      const past = ap.filter(a => a.status === 'CHECKED OUT' && isHtClinic(a.clinic) && a.d < new Date(2026, 5, 30)).sort((a, b) => b.d - a.d).slice(0, 3);
+      const ns = (notes[p.id] || []).filter(n => n.signed && isHtNote(n.title)).map(n => ({ ...n, d: new Date(n.date) })).filter(n => n.d < new Date(2026, 5, 30)).sort((a, b) => b.d - a.d);
+      const n180 = ns.find(n => is180(n.title) && days(n.d) <= 180);
+      const monthly = ns.find(n => n.title === 'HOME TELEHEALTH CARE COORDINATION NOTE');
+      const last = ns[0];
+      const h = (ht.hist || []).filter(x => x.act === 'ACTIVATION' || x.act === 'COC CHANGE').sort((a, b) => b.date.localeCompare(a.date))[0];
+      return { p, name: `${p.last},${p.first}`, l4: p.l4, age: age(p.dob),
+        next: fut[0] ? mdyT(fut[0].d) : '', nextD: fut[0] ? fut[0].d.getTime() : Infinity, clinic: fut[0] ? fut[0].clinic : '', cnt: fut.length || '',
+        n180: n180 ? `${ymd(n180.d)}|${n180.title}` : '', coc: ht.coc || '', cocDate: h ? mdy(new Date(h.date)) : '',
+        past: past.map(a => ymd(a.d)).join(' || '), monthly: monthly ? ymd(monthly.d) : '',
+        l2: last ? `${ymd(last.d)}|${last.title}` : '', since: last ? days(last.d) : '' };
+    }).filter(Boolean);
+  }
+
+  // ---------- Render ----------
+  const COLS = [['#', null], ['Patient Name', 'name'], ['L4SSN', 'l4'], ['Age', 'age'], ['Next Appt', 'nextD'], ['Next Appt Clinic', 'clinic'], ['Next Appts Count', 'cnt'],
+    ['180 Day Note', 'n180'], ['COC Status', 'coc'], ['COC Date', 'cocDate'], ['Past 3 HT Interventions', 'past'], ['HT Monthly Note', 'monthly'], ['L2Note', 'l2'], ['Days Since HT Note', 'since']];
+  let sort = { k: 'name', dir: 1 }, data = [], zoom = '1';
+  function render() {
+    data = rows();
+    const k = sort.k;
+    data.sort((a, b) => { const x = a[k], y = b[k]; return (x === '' ? 1 : y === '' ? -1 : 0) || (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y))) * sort.dir || a.name.localeCompare(b.name); });
+    const cc = $('pCC').value;
+    $('rep').innerHTML = `<div class="rHead"><div class="rTitle">HT Monitor Tool</div><div class="rFor">For(999) VA DEMO HCS<br>HT Care Coordinator: ${cc === 'ALL' ? '(All)' : esc(cc)}</div><div class="rUpd">Last Updated: 6/29/2026 12AM</div></div>
+      <span class="rDoc" id="docLink">Documentation</span><div class="rPage">Page 1 of 1</div>
+      <table class="r"><tr>${COLS.map(([l, f]) => `<th data-k="${f || ''}">${l}${f ? `<span class="s">${sort.k === f ? (sort.dir > 0 ? '&#9650;' : '&#9660;') : '&#8693;'}</span>` : ''}</th>`).join('')}</tr>
+      ${data.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.l4}</td><td>${r.age}</td><td>${r.next}</td><td>${esc(r.clinic)}</td><td>${r.cnt}</td><td class="w">${esc(r.n180)}</td><td>${esc(r.coc)}</td><td>${r.cocDate}</td><td class="w">${r.past}</td><td>${r.monthly}</td><td class="w">${esc(r.l2)}</td><td class="${r.since !== '' && r.since > 30 ? 'late' : ''}">${r.since}</td></tr>`).join('')
+        || `<tr><td colspan="${COLS.length}">No rows match the selected parameters.</td></tr>`}</table>
+      <div class="sim">Simulated report &ndash; synthetic data from the VistA and CPRS mockups.</div>`;
+    $('docLink').onclick = () => $('doc').classList.add('open');
+    applyZoom(); hits = []; hitI = -1;
+    try { parent.postMessage({ type: 'cc-nav', path: PATH, title: 'HT Monitor Tool - Reporting Services' }, '*'); } catch { }
+  }
+  window.ccNav = { path: PATH };
+  function applyZoom() {
+    const r = $('rep'); const z = zoom === 'w' ? Math.min(2, ($('view').clientWidth - 4) / r.offsetWidth) : +zoom;
+    r.style.transform = z === 1 ? '' : `scale(${z})`;
+  }
+
+  // ---------- Find ----------
+  let hits = [], hitI = -1;
+  function find(next) {
+    const q = $('bFind').value.trim().toLowerCase();
+    document.querySelectorAll('#rep td.hit').forEach(td => td.classList.remove('hit', 'cur'));
+    if (!q) return;
+    if (!next || !hits.length) { hits = [...document.querySelectorAll('#rep table.r td')].filter(td => td.textContent.toLowerCase().includes(q)); hitI = -1; }
+    if (!hits.length) { alert('The entire report has been searched.'); return; }
+    hits.forEach(td => td.classList.add('hit'));
+    hitI = (hitI + 1) % hits.length; hits[hitI].classList.add('cur'); hits[hitI].scrollIntoView({ block: 'center', inline: 'nearest' });
+  }
+
+  // ---------- Export ----------
+  function csv() {
+    const q = v => `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [COLS.map(c => c[0]), ...data.map((r, i) => [i + 1, r.name, r.l4, r.age, r.next, r.clinic, r.cnt, r.n180, r.coc, r.cocDate, r.past, r.monthly, r.l2, r.since])];
+    const url = URL.createObjectURL(new Blob([lines.map(l => l.map(q).join(',')).join('\r\n')], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'HT Monitor Tool.csv'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ---------- Events ----------
+  $('pGo').onclick = render; $('bRef').onclick = render;
+  ['bFirst', 'bPrev', 'bNext', 'bLast'].forEach(id => $(id).disabled = true);
+  $('rep').addEventListener('click', e => { const th = e.target.closest('th[data-k]'); if (!th || !th.dataset.k) return; const k = th.dataset.k; sort = { k, dir: sort.k === k ? -sort.dir : 1 }; render(); });
+  $('bFindGo').onclick = () => find(false); $('bFindNext').onclick = () => find(true);
+  $('bFind').addEventListener('keydown', e => { if (e.key === 'Enter') find(hits.length > 0); });
+  $('bFind').addEventListener('input', () => { hits = []; });
+  $('bZoom').onchange = e => { zoom = e.target.value; applyZoom(); };
+  addEventListener('resize', () => { if (zoom === 'w') applyZoom(); });
+  $('bAct').onclick = e => { e.stopPropagation(); $('actMenu').hidden = !$('actMenu').hidden; };
+  document.addEventListener('click', e => { if (!e.target.closest('#actMenu')) $('actMenu').hidden = true; });
+  $('actMenu').onclick = e => { const x = e.target.dataset.x; if (!x) return; $('actMenu').hidden = true;
+    if (x === 'csv' || x === 'xls') csv(); else if (x === 'pdf') print(); else alert('Word export is not available in this simulation.'); };
+  document.querySelectorAll('.crumb [data-act=na]').forEach(a => a.onclick = () => alert('Only the HT Monitor Tool report is part of this simulation.'));
+  $('docClose').onclick = () => $('doc').classList.remove('open');
+  $('doc').onclick = e => { if (e.target === $('doc')) $('doc').classList.remove('open'); };
+  addEventListener('storage', e => { if (e.key === 'cprsNotes' || e.key === 'vistaDB') render(); });
+  render();
+})();
+</script>
+</body>
+</html>
