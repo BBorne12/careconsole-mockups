@@ -194,6 +194,30 @@
   .srGrid td.l { text-align: left; font-weight: normal; padding: 2px 6px; }
   .srGrid tr.grp td { background: #000; color: #fff; text-align: left; padding: 3px 6px; }
   .srSum th { vertical-align: middle; padding: 3px 8px; }
+  .wmDlg { max-width: 760px; border: 1px solid #7f8fb0; background: #f2f2f2; font-size: 11px; margin-top: 6px; }
+  .wmT, .wmSec { background: #10307a; color: #fff; font-weight: bold; text-align: center; padding: 3px; font-size: 12px; }
+  .wmSec { text-align: left; padding-left: 8px; }
+  .wmDlg label { display: block; font-weight: bold; margin: 4px 0 2px; }
+  .wmDlg select, .wmDlg input[type=date] { font-size: 11px; width: 100%; box-sizing: border-box; }
+  .wmDates { display: grid; grid-template-columns: 1fr 1fr; gap: 0 60px; padding: 6px 10px; }
+  .wmDates small { font-weight: normal; font-size: 9px; }
+  .wmBox { margin: 6px 10px; padding: 6px; border: 1px solid #bbb; background: #e8e8e8; }
+  .wmGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 10px; margin-bottom: 6px; }
+  .wmGrid .wmFmt { grid-column: span 2; display: flex; gap: 10px; align-items: flex-end; } .wmFmt label { display: inline; margin: 0; }
+  .wmDlg .srBtns { margin: 8px 0; }
+  .wmPage { background: #fff; width: 880px; padding: 22px 30px 14px; margin-bottom: 14px; border: 1px solid #999; font-size: 11px; box-sizing: border-box; }
+  .wmPHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .wmLogo { font-size: 28px; font-weight: bold; letter-spacing: -1px; color: #111; }
+  .wmPT { font-size: 16px; font-weight: bold; } .wmPD { text-align: right; font-size: 11px; }
+  .wmBand { background: #000; color: #fff; font-weight: bold; font-size: 14px; text-align: center; padding: 3px; margin: 8px 0 4px; }
+  .wmFilt { display: flex; justify-content: space-between; } .wmFilt > div { display: grid; grid-template-columns: auto auto; gap: 2px 10px; }
+  .wmCharts { display: flex; gap: 12px; justify-content: space-between; }
+  .wmChartBox { background: linear-gradient(#fff, #9fbfe0); padding: 4px; } .wmChartT { text-align: center; font-weight: bold; font-size: 13px; }
+  .wmChart text { font-size: 9px; font-family: Arial, sans-serif; }
+  .wmTbl { width: 100%; border-collapse: collapse; } .wmTbl th { text-align: left; vertical-align: bottom; padding: 2px 3px; font-weight: bold; }
+  .wmTbl td { padding: 4px 3px; } .wmTbl tr:nth-child(odd):not(.grp) td { background: #e6e6e6; } .wmTbl tr.grp td { background: #000; color: #fff; font-weight: bold; }
+  .wmPFoot { display: flex; justify-content: space-between; margin-top: 12px; }
+  @media print { .wmPage { border: 0; page-break-after: always; } }
   .srLegend { font-size: 10px; color: #333; }
   @media print { header, .hdr1, .hdr2, footer, .myView, .noprint { display: none !important; } main { overflow: visible; } .report { border: 0; } }
 
@@ -475,7 +499,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       $('hdr2').innerHTML = `<div><div class="ptName">${esc(p.name)} (${p.last4}) {${p.phone}}${p.note ? ` "${esc(p.note)}"` : ''}</div><div class="ptSub">Primary DMP: ${esc(p.dmp)}</div></div><div class="right">${right}</div>`;
       $('ccow').innerHTML = `<span title="CCOW context">&#128421;</span><a data-act="open" data-id="${p.id}">${esc(p.first)} ${esc(p.last)}</a>`;
     } else {
-      const title = S.view === 'sysrep' || S.view === 'sysrepOut' ? 'Device Usage Detail Report' : S.view === 'search' ? 'Search Results' : S.view === 'advsearch' ? 'Search' : 'Daily Activity Overview';
+      const title = S.view === 'sysrep' || S.view === 'sysrepOut' ? 'Device Usage Detail Report' : S.view === 'wm' || S.view === 'wmOut' ? 'Weight Management Program Report' : S.view === 'search' ? 'Search Results' : S.view === 'advsearch' ? 'Search' : 'Daily Activity Overview';
       $('hdr2').innerHTML = `<div class="title">${title}</div><div class="right">${right}</div>`;
       $('ccow').innerHTML = '';
     }
@@ -1004,6 +1028,91 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   }
 
   // ===================================================================
+  //  System Report: Weight Management Program Report (type=20)
+  // ===================================================================
+  const WM_PLATFORM = { robert: 'Commander FLEX', david: 'NetResponse', kyle: 'Commander FLEX', brad: 'Commander FLEX', miles: 'TeleResponse', phil: 'NetResponse', bob: 'NetResponse', michelle: 'TeleResponse', sarah: 'Commander FLEX' };
+  const WM_PLAT_SHORT = [['Commander FLEX', 'Commander Flex'], ['TeleResponse', 'TR'], ['NetResponse', 'NR'], ['LinkView', 'LinkView']];
+  const wmEnrolled = p => -(35 + (+p.internal * 7) % 420);          // synthetic enrollment day (before the data starts)
+  const wmDefault = () => ({ from: '2026-06-01', to: isoOf(TODAY_I), cat: 'Managed Group', prof: 'All Professions', profl: 'All Users', sec: 'Summary', fmt: 'pdf' });
+  function wmRows(a, b) {
+    return pts.map(p => {
+      const w = []; for (let i = a; i <= b; i++) if (p.tx[i] && p.tx[i].wt != null) w.push(p.tx[i].wt);
+      if (!w.length) return null;
+      let sess = 0; for (let i = 0; i <= b; i++) if (p.tx[i] && p.tx[i].qs.length) sess++;
+      const en = wmEnrolled(p), start = w[0], last = w[w.length - 1], chg = last - start;
+      return { p, en, days: b - en, plat: WM_PLATFORM[p.id] || 'Commander FLEX', sess, start, last, n: w.length, chg, pct: chg * 100 / start };
+    }).filter(Boolean).sort((u, v) => u.p.name.localeCompare(v.p.name));
+  }
+  const sgn = (v, d = 1) => (v > 0 ? '+' : '') + v.toFixed(d);
+  function renderWmForm() {
+    const f = S.wm, opt = (v, cur) => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`;
+    $('main').innerHTML = `<div class="wmDlg"><div class="wmT">Weight Management Program Report</div>
+      <div class="wmDates"><div><label>Start Date <small>MM/DD/YYYY</small></label><input type="date" id="wmFrom" value="${f.from}" min="2026-01-01" max="${isoOf(TODAY_I)}"></div>
+        <div><label>End Date <small>MM/DD/YYYY</small></label><input type="date" id="wmTo" value="${f.to}" min="2026-01-01" max="${isoOf(TODAY_I)}"></div></div>
+      <div class="wmSec">Weight Management Program Report</div>
+      <div class="wmBox"><b>Primary Filter</b>
+        <div class="wmGrid"><div><label>Category</label><select id="wmCat">${opt('Managed Group', f.cat)}</select></div>
+          <div><label>Managed Group</label><select id="wmMg">${opt(SR_MG, SR_MG)}</select></div>
+          <div><label>Professions</label><select id="wmProf">${['All Professions', ...Object.keys(SR_PROFS)].map(k => opt(k, f.prof)).join('')}</select></div>
+          <div><label>Professionals</label><select id="wmProfl" disabled>${opt('All Users', 'All Users')}</select></div></div>
+        <div class="wmGrid"><div><label>Secondary Filter</label><select id="wmSec">${opt('Summary', f.sec)}</select></div></div>
+        <div class="wmGrid"><div><label>Report Options</label><select disabled><option>Full Report</option></select></div>
+          <div class="wmFmt"><b>Format</b><label><input type="radio" name="wmFmt" value="pdf" ${f.fmt === 'pdf' ? 'checked' : ''}> PDF</label><label><input type="radio" name="wmFmt" value="xls" ${f.fmt === 'xls' ? 'checked' : ''}> Excel</label><label><input type="radio" name="wmFmt" value="doc" ${f.fmt === 'doc' ? 'checked' : ''}> Word</label></div></div></div>
+      <div class="srBtns"><button class="btn" data-act="wmView">View Report</button><button class="btn" data-act="srCancel">Cancel</button></div></div>`;
+    report('/OmnivisorFaux/Global/LoadSystemReport.aspx?type=20', 'Omnivisor Faux | Report');
+  }
+  function wmCollect() {
+    S.wm = { ...S.wm, from: $('wmFrom').value, to: $('wmTo').value, cat: $('wmCat').value, prof: $('wmProf').value, sec: $('wmSec').value, fmt: document.querySelector('input[name=wmFmt]:checked').value };
+  }
+  function wmBars(title, xTitle, data, color, w) {
+    const H = 190, L = 34, B = 34, T = 8, step = Math.max(1, Math.ceil(Math.max(...data.map(d => d[1])) / 4)), max = step * 4, bw = (w - L - 10) / data.length;
+    const y = v => T + (H - T - B) * (1 - v / max);
+    let g = `<svg width="${w}" height="${H + 16}" class="wmChart"><rect x="${L}" y="${T}" width="${w - L - 10}" height="${H - T - B}" fill="#d9d9d9" stroke="#888"/>`;
+    for (let v = 0; v <= max; v += step) g += `<line x1="${L}" x2="${w - 10}" y1="${y(v)}" y2="${y(v)}" stroke="#aaa" stroke-dasharray="2 2"/><text x="${L - 4}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
+    data.forEach(([l, v], k) => {
+      const x = L + k * bw + bw * 0.2, bwi = bw * 0.6;
+      if (v) g += `<rect x="${x}" y="${y(v)}" width="${bwi}" height="${y(0) - y(v)}" fill="${color}"/><rect x="${x + bwi / 2 - 9}" y="${y(v) + 4}" width="18" height="14" fill="#fff" stroke="#555"/><text x="${x + bwi / 2}" y="${y(v) + 15}" text-anchor="middle">${v}</text>`;
+      g += `<text x="${x + bwi / 2}" y="${H - B + 13}" text-anchor="middle">${esc(l)}</text>`;
+    });
+    g += `<text x="${(L + w) / 2}" y="${H - B + 26}" text-anchor="middle">${esc(xTitle)}</text><text transform="translate(10,${(H - B) / 2}) rotate(-90)" text-anchor="middle"># of Veterans</text></svg>`;
+    return `<div class="wmChartBox"><div class="wmChartT">${esc(title)}</div>${g}</div>`;
+  }
+  function renderWmOut() {
+    const f = S.wm, a = idxOfDate(f.from), b = idxOfDate(f.to), rows = wmRows(a, b);
+    const avg = rows.length ? rows.reduce((s, r) => s + r.chg, 0) / rows.length : 0;
+    const sumS = rows.reduce((s, r) => s + r.start, 0), overall = sumS ? rows.reduce((s, r) => s + r.chg, 0) * 100 / sumS : 0;
+    const bucket = [['Weight Gain', r => r.chg > 0], ['Lost 0 to 5.0', r => r.chg <= 0 && r.chg >= -5], ['Lost 5.1 to 10.0', r => r.chg < -5 && r.chg >= -10], ['Lost 10.1 to 15.0', r => r.chg < -10 && r.chg >= -15], ['Lost 15.1 to 20.0', r => r.chg < -15 && r.chg >= -20], ['Lost > 20', r => r.chg < -20]];
+    const head = `<div class="wmPHead"><span class="wmLogo">Fauxtronic</span><span class="wmPT">Weight Management Program Report</span><span class="wmPD"><b>Report Date</b><br>${mdyShort(a)} - ${mdyShort(b)}</span></div>`;
+    const foot = pg => `<div class="wmPFoot"><b>Copyright &copy; 2026 Fauxtronic - All Rights Reserved</b><span>Page ${pg} of 2</span></div>`;
+    const cols = ['Last Name', 'First Name', 'SSN', 'COC', 'Enrolled', 'Days Enrolled', 'Disenrolled', 'Platform', 'Last Session', 'Start Weight', 'Last Weight', 'Total Weights', 'Total Weight Gain/Loss', '% Gain/Loss'];
+    $('main').innerHTML = `<div class="srBar noprint"><button class="btn" data-act="wmBack">&#9664; Report Parameters</button><button class="btn" onclick="print()">&#128424; Print</button><button class="btn" data-act="wmXls">Export to Excel</button></div>
+      <div class="wmPage">${head}
+        <div class="wmBand">Report Filters</div>
+        <div class="wmFilt"><div><span>Primary Data Filter:</span><b>Group - Managed Group: ${esc(SR_MG)}</b><span>Secondary Data Filter:</span><b>${esc(f.sec)}</b></div>
+          <div><span>Total Active Veterans on Report Date:</span><b>${rows.length}</b><span>Average Weight Gain/Loss:</span><b>${avg.toFixed(1)} pounds</b><span>Overall % Weight Gain/Loss:</span><b>${overall.toFixed(1)} %</b></div></div>
+        <div class="wmBand">Weight Management Program Summary</div>
+        <div class="wmCharts">${wmBars('Weight Gain/Loss Breakdown', 'Weight Gain/Loss (pounds)', bucket.map(([l, fn]) => [l, rows.filter(fn).length]), '#4b4458', 500)}
+          ${wmBars('Platform Distribution', 'OPro Platform Type', WM_PLAT_SHORT.map(([k, l]) => [l, rows.filter(r => r.plat === k).length]), '#4f6b4f', 290)}</div>
+        ${foot(1)}</div>
+      <div class="wmPage">${head}
+        <div class="wmBand">Weight Management Program Detail</div>
+        <table class="wmTbl"><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>
+          <tr class="grp"><td colspan="${cols.length - 1}" style="text-align:center">${esc(SR_MG)}</td><td style="text-align:right">${rows.length}</td></tr>
+          ${rows.map(r => `<tr><td>${esc(r.p.last.toUpperCase())}</td><td>${esc(r.p.first.toUpperCase())}</td><td>${r.p.last4}</td><td>${r.p.coc}</td><td>${mdy(r.en)}</td><td>${r.days}</td><td>N/A</td><td>${r.plat}</td><td>${r.sess}</td><td>${r.start.toFixed(1)}</td><td>${r.last.toFixed(1)}</td><td>${r.n}</td><td>${sgn(r.chg)}</td><td>${sgn(r.pct)} %</td></tr>`).join('') || `<tr><td colspan="${cols.length}">No Data Found</td></tr>`}</table>
+        <div class="sim" style="margin-top:8px;font-size:10px">Simulated report &ndash; synthetic data.</div>
+        ${foot(2)}</div>`;
+    report('/OmnivisorFaux/Global/LoadSystemReport.aspx?type=20', 'Omnivisor Faux | Report');
+  }
+  function wmCsv() {
+    const f = S.wm, rows = wmRows(idxOfDate(f.from), idxOfDate(f.to)), q = v => `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [['Weight Management Program Report', `${mdyShort(idxOfDate(f.from))} - ${mdyShort(idxOfDate(f.to))}`], ['Last Name', 'First Name', 'SSN', 'COC', 'Enrolled', 'Days Enrolled', 'Disenrolled', 'Platform', 'Last Session', 'Start Weight', 'Last Weight', 'Total Weights', 'Total Weight Gain/Loss', '% Gain/Loss'],
+      ...rows.map(r => [r.p.last.toUpperCase(), r.p.first.toUpperCase(), r.p.last4, r.p.coc, mdy(r.en), r.days, 'N/A', r.plat, r.sess, r.start.toFixed(1), r.last.toFixed(1), r.n, sgn(r.chg), sgn(r.pct) + ' %'])];
+    const url = URL.createObjectURL(new Blob([lines.map(l => l.map(q).join(',')).join('\r\n')], { type: 'text/csv' }));
+    const el = document.createElement('a'); el.href = url; el.download = 'WeightManagementProgramReport.csv'; document.body.appendChild(el); el.click(); el.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ===================================================================
   //  Render
   // ===================================================================
   function render() {
@@ -1017,12 +1126,14 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     else if (S.view === 'report') renderReport();
     else if (S.view === 'sysrep') renderSysRep();
     else if (S.view === 'sysrepOut') renderSysRepOut();
+    else if (S.view === 'wm') renderWmForm();
+    else if (S.view === 'wmOut') renderWmOut();
     $('main').scrollTop = 0;
   }
 
   // ---------- Menus ----------
   const MENUS = {
-    sysreports: () => [['Device Usage Detail Report', 'sysDud'], ...['Census Report', 'Non-Responder Report', 'Alert Summary Report', 'Enrollment Report', 'Utilization Report'].map(l => [l, 'na'])],
+    sysreports: () => [['Device Usage Detail Report', 'sysDud'], ['Weight Management Program Report', 'sysWm'], ...['Census Report', 'Non-Responder Report', 'Alert Summary Report', 'Enrollment Report', 'Utilization Report'].map(l => [l, 'na'])],
     reports: () => [['Standard Exception Report', 'repStd'], ['Custom Exception Report', 'na'], ['Standard Glucose Reports', 'na'], ['Status Report', 'na'], ['Telehealth Report', 'na']],
     data: () => VD.map(([k, l]) => [l, 'vd:' + k]),
     tools: () => [['System Users', 'na'], ['Group Messaging', 'na'], ['DMP Viewer', 'na'], ['Change Password', 'na']],
@@ -1119,6 +1230,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       const v = a.dataset.a; closeMenu(); if (!v) return;
       if (v === 'na') return msgBox('This feature is not available in this simulation.');
       if (v === 'repStd') return go({ view: 'report' });
+      if (v === 'sysWm') return go({ view: 'wm', pid: null, wm: S.wm || wmDefault() });
       if (v === 'sysDud') return go({ view: 'sysrep', pid: null, sr: S.sr || srDefault() });
       if (v.startsWith('vd:')) { const k = v.slice(3); qrdUnchecked = new Set(); return go({ view: 'viewdata', vd: k, vdDays: k === 'vss' ? 14 : 21, vdTab: 'graph' }); }
       if (v.startsWith('open:')) return go({ view: 'record', pid: v.slice(5), rtab: 'verify', sel: null, editing: false });
@@ -1128,6 +1240,11 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     srCancel: () => go({ view: 'daily', pid: null }),
     srBack: () => go({ view: 'sysrep' }),
     srXls: () => srCsv(),
+    wmView: () => { wmCollect(); const f = S.wm; if (!f.from || !f.to) return msgBox('Enter a Start Date and an End Date.'); if (f.to < f.from) return msgBox('The End Date must be on or after the Start Date.');
+      if (idxOfDate(f.from) < 0 || idxOfDate(f.to) > TODAY_I) return msgBox(`Select dates between 01/01/2026 and ${mdy(TODAY_I)}.`);
+      if (f.fmt === 'doc') return msgBox('Word format is not available in this simulation. Select PDF or Excel.'); if (f.fmt === 'xls') return wmCsv(); go({ view: 'wmOut' }); },
+    wmBack: () => go({ view: 'wm' }),
+    wmXls: () => wmCsv(),
     mbOk: () => mbClose(true), mbCancel: () => mbClose(false)
   };
   // Settings editing keeps a draft while switching tabs
