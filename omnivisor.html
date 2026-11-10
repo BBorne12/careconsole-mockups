@@ -173,6 +173,28 @@
   .report { max-width: 900px; border: 1px solid #999; padding: 18px 22px; margin-top: 8px; background: #fff; }
   .report h2 { margin: 0 0 4px; font-size: 16px; color: #10307a; }
   .report .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px; font-size: 11px; margin: 8px 0 12px; }
+  /* System report */
+  .srForm { max-width: 640px; padding: 8px 4px; font-size: 13px; }
+  .srForm label { display: block; font-weight: bold; margin: 10px 0 4px; }
+  .srForm h3 { font-size: 16px; margin: 16px 0 4px; }
+  .srForm select, .srForm input[type=date] { width: 100%; padding: 5px 6px; font-size: 13px; box-sizing: border-box; }
+  .srRow { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .srHint { font-size: 12px; margin-top: 6px; }
+  .srRad { display: flex; gap: 14px; } .srRad label { display: inline; font-weight: bold; margin: 0; }
+  .srBtns { display: flex; justify-content: center; gap: 10px; margin-top: 18px; }
+  .srGo { background: #1a5fd0; color: #fff; border-color: #134aa6; }
+  .srBar { display: flex; gap: 8px; align-items: center; margin: 4px 0 8px; font-size: 11px; }
+  .srOut { background: #fff; border: 1px solid #999; padding: 10px; display: inline-block; min-width: 600px; }
+  .srHead { font-weight: bold; font-size: 13px; margin-bottom: 6px; }
+  .srGrid { border-collapse: collapse; font-size: 11px; margin-bottom: 10px; }
+  .srGrid th { background: #c0c0c0; border: 1px solid #555; padding: 3px 2px; vertical-align: bottom; }
+  .srGrid th.vh span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; display: inline-block; }
+  .srGrid th.lh { text-align: left; padding: 3px 6px; }
+  .srGrid td { border: 1px solid #555; padding: 2px 3px; text-align: center; font-weight: bold; white-space: nowrap; }
+  .srGrid td.l { text-align: left; font-weight: normal; padding: 2px 6px; }
+  .srGrid tr.grp td { background: #000; color: #fff; text-align: left; padding: 3px 6px; }
+  .srSum th { vertical-align: middle; padding: 3px 8px; }
+  .srLegend { font-size: 10px; color: #333; }
   @media print { header, .hdr1, .hdr2, footer, .myView, .noprint { display: none !important; } main { overflow: visible; } .report { border: 0; } }
 
   /* IE-style message box */
@@ -453,7 +475,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       $('hdr2').innerHTML = `<div><div class="ptName">${esc(p.name)} (${p.last4}) {${p.phone}}${p.note ? ` "${esc(p.note)}"` : ''}</div><div class="ptSub">Primary DMP: ${esc(p.dmp)}</div></div><div class="right">${right}</div>`;
       $('ccow').innerHTML = `<span title="CCOW context">&#128421;</span><a data-act="open" data-id="${p.id}">${esc(p.first)} ${esc(p.last)}</a>`;
     } else {
-      const title = S.view === 'search' ? 'Search Results' : S.view === 'advsearch' ? 'Search' : 'Daily Activity Overview';
+      const title = S.view === 'sysrep' || S.view === 'sysrepOut' ? 'Device Usage Detail Report' : S.view === 'search' ? 'Search Results' : S.view === 'advsearch' ? 'Search' : 'Daily Activity Overview';
       $('hdr2').innerHTML = `<div class="title">${title}</div><div class="right">${right}</div>`;
       $('ccow').innerHTML = '';
     }
@@ -885,6 +907,103 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   }
 
   // ===================================================================
+  //  System Report: Device Usage Detail (type=17)
+  //  A day counts as Reported (R) when any transmission arrives, as in the
+  //  vendor report: it does not separate DMP-only answers from biometric data.
+  // ===================================================================
+  const SR_PROFS = { 'Care Coordinator': ['Borne, Ben', 'Brewster, Kathy'], 'Lead Care Coordinator': ['Telehealth, Jane'], 'Nurse': ['Borne, Ben', 'Brewster, Kathy'] };
+  const SR_MG = '999 - VA Demo HCS (VISN 00)';
+  const srDefault = () => ({ runFor: 'last', from: isoOf(idxOfDate('2026-05-01')), to: isoOf(idxOfDate('2026-05-31')), cat: 'Managed Group', prof: 'Care Coordinator', profl: USER.name, sec: 'Summary', fmt: 'pdf', opt: 'Detail Only' });
+  const srPreset = k => {
+    if (k === 'last') return ['2026-05-01', '2026-05-31'];
+    if (k === 'current') return ['2026-06-01', isoOf(TODAY_I)];
+    if (k === 'last7') return [isoOf(TODAY_I - 6), isoOf(TODAY_I)];
+    return null;
+  };
+  function srRows(a, b) {
+    const assigned = S.sr.profl === USER.name || S.sr.cat === 'Managed Group';
+    return (assigned ? pts : []).map(p => {
+      const days = []; let r = 0, s = 0;
+      for (let i = a; i <= b; i++) {
+        const c = activeStatus(p, i) ? 'S' : p.tx[i] ? 'R' : 'NR';
+        if (c === 'R') r++; else if (c === 'S') s++;
+        days.push(c);
+      }
+      const poss = days.length - s, nr = poss - r;
+      return { p, days, r, nr, poss, nrPct: poss ? nr * 100 / poss : 0, pct: poss ? r * 100 / poss : 0 };
+    }).sort((u, v) => v.pct - u.pct || v.r - u.r || u.p.name.localeCompare(v.p.name));
+  }
+  function renderSysRep() {
+    const f = S.sr;
+    const opt = (v, cur, l = v) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
+    const profls = SR_PROFS[f.prof] || [];
+    $('main').innerHTML = `<div class="srForm">
+      <div class="srRow"><div><label>Start Date MM/DD/YYYY</label><input type="date" id="srFrom" value="${f.from}" min="2026-01-01" max="${isoOf(TODAY_I)}"></div>
+        <div><label>End Date MM/DD/YYYY</label><input type="date" id="srTo" value="${f.to}" min="2026-01-01" max="${isoOf(TODAY_I)}"></div></div>
+      <h3>Device Usage Detail Report</h3>
+      <div><label>Run Report For:</label><select id="srRunFor" data-act="srRunFor">${opt('custom', f.runFor, 'Custom date range')}${opt('last', f.runFor, 'Last Month')}${opt('current', f.runFor, 'Current Month')}${opt('last7', f.runFor, 'Last 7 Days')}</select>
+        <div class="srHint">*This report can be run for a maximum of 31 calendar days</div></div>
+      <div class="srRow"><div><label>Category</label><select id="srCat" data-act="srCat">${opt('Managed Group', f.cat)}${opt('Professional', f.cat)}</select></div>
+        <div><label>Managed Group</label><select id="srMg">${opt(SR_MG, SR_MG)}</select></div></div>
+      <div class="srRow"><div><label>Professions</label><select id="srProf" data-act="srProf">${Object.keys(SR_PROFS).map(k => opt(k, f.prof)).join('')}</select></div>
+        <div><label>Professionals</label><select id="srProfl">${profls.map(k => opt(k, f.profl)).join('')}</select></div></div>
+      <div class="srRow"><div><label>Secondary Filter</label><select id="srSec">${opt('Summary', f.sec)}${opt('None', f.sec)}</select></div><div></div></div>
+      <div class="srRow"><div><label>Format</label><span class="srRad"><label><input type="radio" name="srFmt" value="pdf" ${f.fmt === 'pdf' ? 'checked' : ''}> PDF</label><label><input type="radio" name="srFmt" value="xls" ${f.fmt === 'xls' ? 'checked' : ''}> Excel</label></span></div>
+        <div><label>Report Options</label><select id="srOpt">${['Detail Only', 'Summary Only', 'Detail and Summary'].map(k => opt(k, f.opt)).join('')}</select></div></div>
+      <div class="srBtns"><button class="btn srGo" data-act="srView">View Report</button><button class="btn" data-act="srCancel">Cancel</button></div>
+    </div>`;
+    report('/OmnivisorFaux/Global/LoadSystemReport.aspx?type=17', 'Report | Omnivisor Faux');
+  }
+  function srCollect() {
+    S.sr = { ...S.sr, runFor: $('srRunFor').value, from: $('srFrom').value, to: $('srTo').value, cat: $('srCat').value, prof: $('srProf').value,
+      profl: $('srProfl').value, sec: $('srSec').value, fmt: document.querySelector('input[name=srFmt]:checked').value, opt: $('srOpt').value };
+  }
+  function srValidate() {
+    const f = S.sr; if (!f.from || !f.to) return 'Enter a Start Date and an End Date.';
+    const a = idxOfDate(f.from), b = idxOfDate(f.to);
+    if (b < a) return 'The End Date must be on or after the Start Date.';
+    if (b - a + 1 > 31) return 'This report can be run for a maximum of 31 calendar days.';
+    if (a < 0 || b > TODAY_I) return `Select dates between 01/01/2026 and ${mdy(TODAY_I)}.`;
+    return '';
+  }
+  function srTitle() { const f = S.sr; return `Device Usage Detail - ${f.cat === 'Managed Group' ? SR_MG : f.profl} - ${mdy(idxOfDate(f.from))} to ${mdy(idxOfDate(f.to))}`; }
+  function renderSysRepOut() {
+    const f = S.sr, a = idxOfDate(f.from), b = idxOfDate(f.to), rows = srRows(a, b), dayIx = [];
+    for (let i = a; i <= b; i++) dayIx.push(i);
+    const pc = v => v.toFixed(1) + '%';
+    const vh = t => `<th class="vh"><span>${t}</span></th>`;
+    const detail = f.opt !== 'Summary Only';
+    const summary = f.opt !== 'Detail Only';
+    let html = `<div class="srBar noprint"><button class="btn" data-act="srBack">&#9664; Report Parameters</button><span>Page 1 of 1</span><button class="btn" onclick="print()">&#128424; Print</button><button class="btn" data-act="srXls">Export to Excel</button></div>
+      <div class="srOut"><div class="srHead">Report: ${esc(srTitle())}</div>`;
+    if (detail) {
+      html += `<table class="srGrid"><tr><th class="lh">Veteran</th><th class="lh">SSN</th><th class="lh">COC</th>${dayIx.map(i => vh(monDay(i).replace(' 0', ' '))).join('')}${vh('Total Rptd')}${vh('Total Not Rptd')}${vh('Total Poss Rptd')}${vh('Not Rptd %')}${vh('% Rptd')}</tr>
+        <tr class="grp"><td colspan="${dayIx.length + 8}">${esc(f.prof)}: ${esc(f.cat === 'Managed Group' ? USER.name : f.profl)}</td></tr>` +
+        (rows.length ? rows.map(r => `<tr><td class="l">${esc(r.p.name)}</td><td>${r.p.last4}</td><td>${r.p.coc}</td>${r.days.map(c => `<td>${c}</td>`).join('')}<td>${r.r}</td><td>${r.nr}</td><td>${r.poss}</td><td>${pc(r.nrPct)}</td><td>${pc(r.pct)}</td></tr>`).join('')
+          : `<tr><td colspan="${dayIx.length + 8}" class="l">No Data Found</td></tr>`) + '</table>';
+    }
+    if (summary) {
+      const T = rows.reduce((o, r) => ({ r: o.r + r.r, nr: o.nr + r.nr, poss: o.poss + r.poss }), { r: 0, nr: 0, poss: 0 });
+      html += `<table class="srGrid srSum"><tr><th class="lh">Summary</th><th>Veterans</th><th>Total Rptd</th><th>Total Not Rptd</th><th>Total Poss Rptd</th><th>Not Rptd %</th><th>% Rptd</th></tr>
+        <tr><td class="l">${esc(f.cat === 'Managed Group' ? SR_MG : f.profl)}</td><td>${rows.length}</td><td>${T.r}</td><td>${T.nr}</td><td>${T.poss}</td><td>${pc(T.poss ? T.nr * 100 / T.poss : 0)}</td><td>${pc(T.poss ? T.r * 100 / T.poss : 0)}</td></tr></table>`;
+    }
+    html += `<div class="srLegend">R = Reported &nbsp; NR = Not Reported &nbsp; S = Status (hospital, travel, etc.) &nbsp; X = Not enrolled &nbsp;&nbsp; Printed ${mdy(TODAY_I)}</div>
+      <div class="sim" style="margin-top:8px;font-size:10px">Simulated report &ndash; synthetic data.</div></div>`;
+    $('main').innerHTML = html;
+    report('/OmnivisorFaux/Global/LoadSystemReport.aspx?type=17', 'Report | Omnivisor Faux');
+  }
+  function srCsv() {
+    const f = S.sr, a = idxOfDate(f.from), b = idxOfDate(f.to), rows = srRows(a, b), dayIx = [];
+    for (let i = a; i <= b; i++) dayIx.push(i);
+    const q = v => `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [[`Report: ${srTitle()}`], ['Veteran', 'SSN', 'COC', ...dayIx.map(monDay), 'Total Rptd', 'Total Not Rptd', 'Total Poss Rptd', 'Not Rptd %', '% Rptd'],
+      ...rows.map(r => [r.p.name, r.p.last4, r.p.coc, ...r.days, r.r, r.nr, r.poss, r.nrPct.toFixed(1) + '%', r.pct.toFixed(1) + '%'])];
+    const url = URL.createObjectURL(new Blob([lines.map(l => l.map(q).join(',')).join('\r\n')], { type: 'text/csv' }));
+    const el = document.createElement('a'); el.href = url; el.download = 'DeviceUsageDetailReport.csv'; document.body.appendChild(el); el.click(); el.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ===================================================================
   //  Render
   // ===================================================================
   function render() {
@@ -896,12 +1015,14 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     else if (S.view === 'record') renderRecord();
     else if (S.view === 'viewdata') renderViewData();
     else if (S.view === 'report') renderReport();
+    else if (S.view === 'sysrep') renderSysRep();
+    else if (S.view === 'sysrepOut') renderSysRepOut();
     $('main').scrollTop = 0;
   }
 
   // ---------- Menus ----------
   const MENUS = {
-    sysreports: () => ['Census Report', 'Non-Responder Report', 'Alert Summary Report', 'Enrollment Report', 'Utilization Report'].map(l => [l, 'na']),
+    sysreports: () => [['Device Usage Detail Report', 'sysDud'], ...['Census Report', 'Non-Responder Report', 'Alert Summary Report', 'Enrollment Report', 'Utilization Report'].map(l => [l, 'na'])],
     reports: () => [['Standard Exception Report', 'repStd'], ['Custom Exception Report', 'na'], ['Standard Glucose Reports', 'na'], ['Status Report', 'na'], ['Telehealth Report', 'na']],
     data: () => VD.map(([k, l]) => [l, 'vd:' + k]),
     tools: () => [['System Users', 'na'], ['Group Messaging', 'na'], ['DMP Viewer', 'na'], ['Change Password', 'na']],
@@ -998,9 +1119,15 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       const v = a.dataset.a; closeMenu(); if (!v) return;
       if (v === 'na') return msgBox('This feature is not available in this simulation.');
       if (v === 'repStd') return go({ view: 'report' });
+      if (v === 'sysDud') return go({ view: 'sysrep', pid: null, sr: S.sr || srDefault() });
       if (v.startsWith('vd:')) { const k = v.slice(3); qrdUnchecked = new Set(); return go({ view: 'viewdata', vd: k, vdDays: k === 'vss' ? 14 : 21, vdTab: 'graph' }); }
       if (v.startsWith('open:')) return go({ view: 'record', pid: v.slice(5), rtab: 'verify', sel: null, editing: false });
     },
+    // System report
+    srView: () => { srCollect(); const err = srValidate(); if (err) return msgBox(err); if (S.sr.fmt === 'xls') return srCsv(); go({ view: 'sysrepOut' }); },
+    srCancel: () => go({ view: 'daily', pid: null }),
+    srBack: () => go({ view: 'sysrep' }),
+    srXls: () => srCsv(),
     mbOk: () => mbClose(true), mbCancel: () => mbClose(false)
   };
   // Settings editing keeps a draft while switching tabs
@@ -1025,6 +1152,8 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     if (a.dataset.act === 'vdDays') go({ vdDays: +a.value }, false);
     if (a.dataset.act === 'qrdSel') go({ qrd: a.value }, false);
     if (a.dataset.act === 'fuView') go({ fuView: a.value }, false);
+    if (a.dataset.act === 'srRunFor') { srCollect(); const d = srPreset(a.value); if (d) [S.sr.from, S.sr.to] = d; render(); }
+    if (a.dataset.act === 'srProf' || a.dataset.act === 'srCat') { srCollect(); const l = SR_PROFS[S.sr.prof] || []; if (!l.includes(S.sr.profl)) S.sr.profl = l[0] || ''; render(); }
   });
   document.addEventListener('keydown', e => { if (e.key === 'Enter' && $('mb').classList.contains('open')) { e.preventDefault(); mbClose(true); } });
 
