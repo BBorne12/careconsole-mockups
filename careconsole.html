@@ -365,6 +365,7 @@
   .libDoc { max-width: 760px; margin: 30px auto; border: 1px solid #ccc; padding: 30px; background: #fafafa; }
 
 </style>
+<script src="add-note.js"></script>
 </head>
 <body>
 <!-- careconsole.html: CareConsole dashboard, patient pages, reports and admin pages (mockup; synthetic data) -->
@@ -876,9 +877,11 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     let cprs = []; try { cprs = (JSON.parse(store.getItem('cprsNotes') || '{}')[p.id] || []); } catch { }
     const list = [...n.map(([d, t]) => ({ d: dateOf(d), type: 'Care Coordinator Note', by: 'Borne, Ben', text: t })),
       ...Object.values(getJson('ccAssessNotes', {})).filter(x => x && x.pt === p.id).map(x => ({ d: new Date(x.date), type: 'Assessment Note', by: 'Borne, Ben', text: x.text }))]
+      .concat((window.ccCareNotes ? ccCareNotes.load() : []).filter(x => x.pt === p.id).map(x => { const [h, m] = x.startTime.split(':').map(Number), d = fromIso(x.date); d.setHours(h, m);
+        return { d, type: x.noteTitle, by: x.author, text: x.comments, id: x.id, contact: x.contactType, time: `${x.durationMinutes} min (${ccCareNotes.fmt12(x.startTime)} - ${ccCareNotes.fmt12(x.endTime)})` }; }))
       .filter(x => x.d >= from && x.d <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59)).sort((a, b) => b.d - a.d);
     if (!list.length) return '<div class="redMsg">No Notes Have Been Reported During This Period</div>';
-    return `<table class="grid"><tr><th style="width:110px">Date</th><th style="width:170px">Note Type</th><th style="width:130px">Created By</th><th>Note</th></tr>${list.map(x => `<tr><td>${mmddyyyy(x.d)}</td><td>${x.type}</td><td>${x.by}</td><td>${esc(x.text)}</td></tr>`).join('')}</table>`;
+    return `<table class="grid"><tr><th style="width:100px">Date</th><th style="width:170px">Note Type</th><th style="width:90px">Contact</th><th style="width:150px">Time Spent</th><th style="width:110px">Created By</th><th>Note</th><th style="width:60px"></th></tr>${list.map(x => `<tr><td>${mmddyyyy(x.d)}</td><td>${esc(x.type)}</td><td>${esc(x.contact || '')}</td><td>${x.time || ''}</td><td>${esc(x.by)}</td><td>${esc(x.text)}</td><td>${x.id ? `<a class="lnk" data-modnote="${x.id}">Modify</a>` : ''}</td></tr>`).join('')}</table>`;
   }
   ROUTES.record = (q) => {
     const p = byId[selId()];
@@ -898,7 +901,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       ${acc('r-dmp', 'DMP Summary', `<div style="display:flex;justify-content:space-between"><div style="flex:1">${range('d', r.df, r.dt)}</div><div class="legend"><i style="background:#c7eab6"></i>No Alert<br><i style="background:#f5eaa5"></i>Medium Alert<br><i style="background:#f3b7ae"></i>High Alert<br><i style="background:#f2c0ea"></i>Priority Alert</div></div>
         <div style="text-align:right"><button class="btnBlue" id="dCopy">Copy to CPRS</button></div>${dmp.html}
         ${dmp.pages > 1 ? `<div style="text-align:center;margin-top:10px"><b>Page ${r.page + 1}of ${dmp.pages}</b><br><a class="lnk" data-pg="0">[First Page]</a> <a class="lnk" data-pg="${Math.max(0, r.page - 1)}">[Previous Page]</a> <a class="lnk" data-pg="${Math.min(dmp.pages - 1, r.page + 1)}">[Next Page]</a> <a class="lnk" data-pg="${dmp.pages - 1}">[Last Page]</a></div>` : ''}`, isOpen('r-dmp'))}
-      ${acc('r-notes', 'Past Notes', `${range('n', r.nf, r.nt, ` <span class="bar1"></span> Date Range <select id="nSpec">${opts(['Custom', 'Last 30 days', 'Last 90 days', 'Last 180 days'], 'Custom')}</select>`)}<div style="text-align:right"><button class="btnBlue" id="nCopy">Copy to CPRS</button></div>${pastNotes(p, r.nf, r.nt)}`, isOpen('r-notes'))}
+      ${acc('r-notes', 'Past Notes', `${range('n', r.nf, r.nt, ` <span class="bar1"></span> Date Range <select id="nSpec">${opts(['Custom', 'Last 30 days', 'Last 90 days', 'Last 180 days'], 'Custom')}</select>`)}<div style="text-align:right"><button class="btnBlue" id="nAdd">Add a Note</button> <button class="btnBlue" id="nCopy">Copy to CPRS</button></div>${pastNotes(p, r.nf, r.nt)}`, isOpen('r-notes'))}
       ${acc('r-ann', 'Previous Announcements/Reminders', msgs.length ? `<table class="grid"><tr><th style="width:110px">Date</th><th style="width:130px">Type</th><th>Message</th><th style="width:130px">Created By</th></tr>${msgs.map(m => `<tr><td>${m.date}</td><td>${m.kind}</td><td>${esc(m.text)}</td><td>${m.by}</td></tr>`).join('')}</table>` : '<div class="redMsg">No Announcements or Reminders</div>', isOpen('r-ann'))}</div>`;
     wireHeader(p, ROUTES.record);
     main.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
@@ -924,6 +927,9 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     };
     $('vCopy').onclick = () => copyText(vitText());
     $('dCopy').onclick = () => { const L = [`DMP Summary for ${p.last}, ${p.first}  ${mmddyyyy(r.df)} - ${mmddyyyy(r.dt)}`, '']; dmpSessions(p, r.df, r.dt).forEach(s => { L.push(`${mmddyyyy(dateOf(s.day))}  ${p.dmpName} session ${p.sess[s.day - 1] || '-'}`); s.q.forEach(x => L.push(`  Q: ${CC_Q[x[1]]}  A: ${x[2]}  Risk: ${RISK[x[3]]}`)); }); copyText(wrap80(L.join('\n'))); };
+    const noteSaved = n => { const d = fromIso(n.date); if (d < r.nf) r.nf = d; if (d > r.nt) r.nt = d; const o = getJson('ccAccOpen', {}); o['r-notes'] = true; setJson('ccAccOpen', o); ROUTES.record(); };
+    $('nAdd').onclick = () => ccAddNote({ pt: p.id, name: fullName(p), onSaved: noteSaved });
+    main.querySelectorAll('[data-modnote]').forEach(a => a.onclick = () => ccAddNote({ pt: p.id, name: fullName(p), edit: a.dataset.modnote, onSaved: noteSaved }));
     $('nCopy').onclick = () => { const tmp = document.createElement('div'); tmp.innerHTML = pastNotes(p, r.nf, r.nt); copyText(wrap80(tmp.innerText)); };
     return 'Patient Record';
   };

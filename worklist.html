@@ -184,6 +184,7 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 8px 16px; border-radius: 4px; font-size: 13px; z-index: 2000; display: none; }
 </style>
+<script src="add-note.js"></script>
 </head>
 <body>
 
@@ -702,7 +703,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       <td style="width:50px"><a style="color:#000" data-tip="${esc(dmpTip(p, info.sess))}">${info.sess}/${p.total}</a></td>
       ${dmpCell(info)}${vitalCells(info, false)}
       <td>${info.nr}</td>
-      <td style="width:70px"><div class="extraBtns"><i style="background-image:${imgUrl('addNote')}" data-tip="Write a Note"></i><i style="background-image:${imgUrl('flag')}" data-tip="<b>Status</b><br><br><b><span style='color:#19e512'>Active</span></b> ${shortDate(dateOf(1))} - Present"></i><i style="background-image:${imgUrl('Announcement')}" data-tip="Create, update and view announcements"></i><span class="cnt">0</span>${ext}</div></td>
+      <td style="width:70px"><div class="extraBtns"><i style="background-image:${imgUrl('addNote')}" data-tip="Write a Note" data-note="${p.id}" role="button" aria-label="Write a Note"></i><i style="background-image:${imgUrl('flag')}" data-tip="<b>Status</b><br><br><b><span style='color:#19e512'>Active</span></b> ${shortDate(dateOf(1))} - Present"></i><i style="background-image:${imgUrl('Announcement')}" data-tip="Create, update and view announcements"></i><span class="cnt">0</span>${ext}</div></td>
       <td style="width:30px"><span class="task_regular" data-tip="&nbsp;<b>Overdue</b> : 0 Tasks<br>&nbsp;<b>7 Days</b> : 0 Tasks Due<br>&nbsp;<b>14 Days</b> : 0 Tasks Due">0</span></td>
       <td></td>
     </tr>`;
@@ -819,6 +820,8 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     if (ex) { expand(ex.dataset.expand); return; }
     const xt = e.target.closest('[data-extend]');
     if (xt) { extendDays = +xt.dataset.extend; render(); return; }
+    const nt = e.target.closest('[data-note]');
+    if (nt) { const p = byId[nt.dataset.note]; if (window.ccAddNote) ccAddNote({ pt: p.id, name: p.name }); return; }
     const pt = e.target.closest('[data-patient]');
     if (pt) { if (expandedId !== pt.dataset.patient) expand(pt.dataset.patient); return; }
     const ak = e.target.closest('[data-ack]');
