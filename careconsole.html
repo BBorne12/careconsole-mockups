@@ -638,7 +638,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
 
   // Tasks
   const TASK_NAMES = ['Periodic Evaluation Note', 'Provider Appointment', 'Courtesy Call', 'Biometric/Symptom Check', 'Parameter Review', 'Medication Change', 'Post ER/Hospital Discharge',
-    'Post Provider Appointment', 'Address Compliance', 'Device Issue Follow Up', 'Device Set Up/Installation', 'Intervention Follow Up', 'Other'];
+    'Post Provider Appointment', 'Address Compliance', 'Device Issue Follow Up', 'Device Set Up/Installation', 'Intervention Follow Up', '16 Days Device Reported', 'Other'];
   let TASKS = getJson('ccTasks', null);
   if (!TASKS) {
     TASKS = [];
@@ -648,6 +648,11 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     });
     TASKS.push({ id: 'tx1', pt: 'miles', title: 'Post ER/Hospital Discharge', due: iso(dateOf(DAYS - 1)), rec: 'Single', end: '', by: 'Borne, Ben', status: 'Not Completed', note: 'Call within 48 hours of discharge.' });
     TASKS.push({ id: 'tx2', pt: 'david', title: 'Parameter Review', due: iso(dateOf(DAYS - 5)), rec: 'Single', end: '', by: 'Borne, Ben', status: 'Completed', note: 'BP parameters reviewed with PCP.' });
+  }
+  // Added after the first seed, so browsers that already have tasks get it too
+  if (!TASKS.some(t => t.id === 'tx16') && !store.getItem('ccTaskSeed16')) {
+    TASKS.push({ id: 'tx16', pt: 'miles', title: '16 Days Device Reported', due: iso(dateOf(DAYS + 1)), rec: 'Every 30 Days', end: '', by: 'Borne, Ben', status: 'Not Completed', note: 'Confirm the device has reported on at least 16 days in the current 30-day period.' });
+    store.setItem('ccTaskSeed16', '1'); setJson('ccTasks', TASKS);
   }
   const saveTasks = () => setJson('ccTasks', TASKS);
 

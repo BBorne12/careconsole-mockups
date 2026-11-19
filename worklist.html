@@ -531,6 +531,14 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     catch { const m = new Map(); return { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; }
   })();
   const getJson = (k, d) => { try { return JSON.parse(store.getItem(k)) ?? d; } catch { return d; } };
+  // Tasks count: uncompleted tasks (kept by careconsole.html in "ccTasks") that are overdue or due within 14 days
+  function taskCell(p) {
+    const today = iso(dateOf(DAYS)), d7 = iso(dateOf(DAYS + 7)), d14 = iso(dateOf(DAYS + 14));
+    const open = getJson('ccTasks', []).filter(t => t.pt === p.id && t.status === 'Not Completed');
+    const od = open.filter(t => t.due < today).length, w7 = open.filter(t => t.due >= today && t.due <= d7).length, w14 = open.filter(t => t.due >= today && t.due <= d14).length;
+    const tip = `&nbsp;<b>Overdue</b> : ${od} Tasks<br>&nbsp;<b>7 Days</b> : ${w7} Tasks Due<br>&nbsp;<b>14 Days</b> : ${w14} Tasks Due`;
+    return `<td style="width:30px"><a class="task_regular" href="careconsole.html#tasks" data-taskpt="${p.id}" data-tip="${tip}" style="color:${od ? '#c00' : '#000'};text-decoration:none;cursor:pointer">${od + w14}</a></td>`;
+  }
   const setJson = (k, v) => store.setItem(k, JSON.stringify(v));
 
   // Top menu (items copied from CareConsole; they only show, they don't navigate)
@@ -704,7 +712,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       ${dmpCell(info)}${vitalCells(info, false)}
       <td>${info.nr}</td>
       <td style="width:70px"><div class="extraBtns"><i style="background-image:${imgUrl('addNote')}" data-tip="Write a Note" data-note="${p.id}" role="button" aria-label="Write a Note"></i><i style="background-image:${imgUrl('flag')}" data-tip="<b>Status</b><br><br><b><span style='color:#19e512'>Active</span></b> ${shortDate(dateOf(1))} - Present"></i><i style="background-image:${imgUrl('Announcement')}" data-tip="Create, update and view announcements"></i><span class="cnt">0</span>${ext}</div></td>
-      <td style="width:30px"><span class="task_regular" data-tip="&nbsp;<b>Overdue</b> : 0 Tasks<br>&nbsp;<b>7 Days</b> : 0 Tasks Due<br>&nbsp;<b>14 Days</b> : 0 Tasks Due">0</span></td>
+      ${taskCell(p)}
       <td></td>
     </tr>`;
   }
@@ -820,6 +828,8 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     if (ex) { expand(ex.dataset.expand); return; }
     const xt = e.target.closest('[data-extend]');
     if (xt) { extendDays = +xt.dataset.extend; render(); return; }
+    const tk = e.target.closest('[data-taskpt]');
+    if (tk) { store.setItem('ccSelectedPatient', tk.dataset.taskpt); return; }   // link continues to the All Assigned Tasks page
     const nt = e.target.closest('[data-note]');
     if (nt) { const p = byId[nt.dataset.note]; if (window.ccAddNote) ccAddNote({ pt: p.id, name: p.name }); return; }
     const pt = e.target.closest('[data-patient]');
