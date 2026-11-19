@@ -366,6 +366,7 @@
 
 </style>
 <script src="add-note.js"></script>
+<script src="cc-tasks.js"></script>
 </head>
 <body>
 <!-- careconsole.html: CareConsole dashboard, patient pages, reports and admin pages (mockup; synthetic data) -->
@@ -637,24 +638,10 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   const savePend = () => setJson('ccPending', PEND);
 
   // Tasks
-  const TASK_NAMES = ['Periodic Evaluation Note', 'Provider Appointment', 'Courtesy Call', 'Biometric/Symptom Check', 'Parameter Review', 'Medication Change', 'Post ER/Hospital Discharge',
-    'Post Provider Appointment', 'Address Compliance', 'Device Issue Follow Up', 'Device Set Up/Installation', 'Intervention Follow Up', '16 Days Device Reported', 'Other'];
-  let TASKS = getJson('ccTasks', null);
-  if (!TASKS) {
-    TASKS = [];
-    patients.forEach((p, i) => {
-      TASKS.push({ id: 't' + i + 'a', pt: p.id, title: 'Monthly Note', due: iso(dateOf(DAYS + 3 + i * 2)), rec: 'Every 30 Days', end: '', by: 'Borne, Ben', status: 'Not Completed', note: 'Monthly telehealth note.' });
-      if (i % 3 === 0) TASKS.push({ id: 't' + i + 'b', pt: p.id, title: 'Periodic Evaluation Note', due: iso(dateOf(DAYS + 10 + i)), rec: 'Every 90 Days', end: '', by: 'Borne, Ben', status: 'Not Completed', note: '' });
-    });
-    TASKS.push({ id: 'tx1', pt: 'miles', title: 'Post ER/Hospital Discharge', due: iso(dateOf(DAYS - 1)), rec: 'Single', end: '', by: 'Borne, Ben', status: 'Not Completed', note: 'Call within 48 hours of discharge.' });
-    TASKS.push({ id: 'tx2', pt: 'david', title: 'Parameter Review', due: iso(dateOf(DAYS - 5)), rec: 'Single', end: '', by: 'Borne, Ben', status: 'Completed', note: 'BP parameters reviewed with PCP.' });
-  }
-  // Added after the first seed, so browsers that already have tasks get it too
-  if (!TASKS.some(t => t.id === 'tx16') && !store.getItem('ccTaskSeed16')) {
-    TASKS.push({ id: 'tx16', pt: 'miles', title: '16 Days Device Reported', due: iso(dateOf(DAYS + 1)), rec: 'Every 30 Days', end: '', by: 'Borne, Ben', status: 'Not Completed', note: 'Confirm the device has reported on at least 16 days in the current 30-day period.' });
-    store.setItem('ccTaskSeed16', '1'); setJson('ccTasks', TASKS);
-  }
-  const saveTasks = () => setJson('ccTasks', TASKS);
+  // Tasks are shared with the Work List (cc-tasks.js, localStorage "ccTasks")
+  const TASK_NAMES = CCTasks.NAMES;
+  let TASKS = CCTasks.load();
+  const saveTasks = () => CCTasks.save(TASKS);
 
   // Patient-level announcements / reminders / questions (Message Center)
   let MSGS = getJson('ccMessages', [
@@ -1016,6 +1003,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   let taskF = { state: 'All Uncompleted Tasks', title: 'All Task Titles', from: TODAY, to: dateOf(DAYS + 30), spec: '30', all: false };
   const NEXT = [['7', 'Next 7 days'], ['14', 'Next 14 days'], ['21', 'Next 21 days'], ['30', 'Next 30 days'], ['60', 'Next 60 days'], ['90', 'Next 90 days'], ['120', 'Next 120 days'], ['c', 'Custom Range'], ['od', 'Overdue/Due Today']];
   ROUTES.tasks = () => {
+    TASKS = CCTasks.load();
     const p = byId[selId()];
     const inRange = t => taskF.spec === 'od' ? fromIso(t.due) <= TODAY : fromIso(t.due) >= taskF.from && fromIso(t.due) <= taskF.to;
     const list = TASKS.filter(t => t.pt === p.id && inRange(t) && (taskF.title === 'All Task Titles' || t.title === taskF.title)
@@ -1024,44 +1012,20 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     main.innerHTML = `<div class="page"><h1 class="pt">All Assigned Tasks</h1><div style="margin-bottom:8px"><b>Patient Name:</b> <span class="lnkPlain">${esc(fullName(p))}</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center">${dateRow(taskF.from, taskF.to, taskF.spec, NEXT)}<b>Total Tasks: ${list.length}</b></div>
       <div class="fbar"><span class="lbl">Filter By</span><select id="tState">${opts(['All Uncompleted Tasks', 'All Completed Tasks', 'All Tasks', 'Canceled Tasks'], taskF.state)}</select><select><option>All Care Coordinators</option><option>Borne, Ben</option></select>
-        <select id="tTitle">${opts(['All Task Titles', 'Monthly Note', ...TASK_NAMES], taskF.title)}</select><span class="right"><button class="btnWhite" id="tNew">Create New Task</button><button class="btnWhite" id="tDone" disabled>Complete</button></span></div>
+        <select id="tTitle">${opts(['All Task Titles', ...new Set(['Monthly Note', ...TASK_NAMES.filter(n => n !== 'Other'), ...TASKS.map(t => t.title)])], taskF.title)}</select><span class="right"><button class="btnWhite" id="tNew">Create New Task</button><button class="btnWhite" id="tDone" disabled>Complete</button></span></div>
       <table class="grid"><tr><th style="width:30px">#</th><th>Task Title</th><th>Due Date</th><th>Recurrence</th><th>End Date</th><th>Created By</th><th>Task Status</th></tr>
       ${list.map(t => `<tr><td><input type="checkbox" data-tk="${t.id}" ${t.status !== 'Not Completed' ? 'disabled' : ''}></td><td><a class="lnk" data-tedit="${t.id}">${esc(t.title)}</a>${t.rec !== 'Single' ? '*' : ''}</td><td${fromIso(t.due) < TODAY && t.status === 'Not Completed' ? ' style="color:var(--danger-color);font-weight:600"' : ''}>${mmddyyyy(fromIso(t.due))}</td><td>${t.rec === 'Single' ? '' : t.rec}</td><td>${t.end ? mmddyyyy(fromIso(t.end)) : ''}</td><td>${t.by}</td><td>${t.status}</td></tr>`).join('') || '<tr><td colspan="7" class="c">No data to display</td></tr>'}</table></div>`;
     wireDates((f, t, s) => { taskF.from = f; taskF.to = t; taskF.spec = s; ROUTES.tasks(); });
     $('dSpec').onchange = e => { const s = e.target.value; taskF.spec = s; if (s !== 'c' && s !== 'od') { taskF.from = TODAY; taskF.to = dateOf(DAYS + +s); } ROUTES.tasks(); };
     $('tState').onchange = e => { taskF.state = e.target.value; ROUTES.tasks(); }; $('tTitle').onchange = e => { taskF.title = e.target.value; ROUTES.tasks(); };
     main.querySelectorAll('[data-tk]').forEach(c => c.onchange = () => { $('tDone').disabled = !main.querySelector('[data-tk]:checked'); });
-    $('tDone').onclick = () => { const ids = [...main.querySelectorAll('[data-tk]:checked')].map(c => c.dataset.tk); ids.forEach(id => { const t = TASKS.find(x => x.id === id); t.status = 'Completed'; if (t.rec.startsWith('Every')) { const n = { 'Every 30 Days': 30, 'Every 60 Days': 60, 'Every 90 Days': 90, 'Every 120 Days': 120, 'Every 6 Months': 182, 'Every Year': 365 }[t.rec] || 30; TASKS.push({ ...t, id: 't' + Date.now() + Math.random().toString(36).slice(2, 5), due: iso(new Date(fromIso(t.due).getTime() + n * 864e5)), status: 'Not Completed' }); } }); saveTasks(); toast(`${ids.length} task(s) completed`); ROUTES.tasks(); };
+    $('tDone').onclick = () => { const ids = [...main.querySelectorAll('[data-tk]:checked')].map(c => c.dataset.tk); const n = CCTasks.complete(ids); toast(`${n} task(s) completed`); ROUTES.tasks(); };
     $('tNew').onclick = () => taskPopup(p);
     main.querySelectorAll('[data-tedit]').forEach(a => a.onclick = () => taskPopup(p, TASKS.find(t => t.id === a.dataset.tedit)));
     return 'All Assigned Tasks';
   };
   function taskPopup(p, t) {
-    let tab = t && t.rec === 'Single' ? 'Single Task' : t && /Week/.test(t.rec) ? 'Weekly Task' : 'Monthly Task';
-    const pp = popup(`<h2>${t ? 'Edit Task' : 'Create New Task'}</h2><div>Create a task by entering task name and due date.</div><div style="margin-top:8px"><b>Patient Name:</b> <span class="lnkPlain">${esc(fullName(p))}</span></div>
-      <label class="f">Task Name <span class="req">*</span></label><select id="tkName">${opts(['Select', 'Monthly Note', ...TASK_NAMES], t ? t.title : 'Select')}</select>
-      <label class="f">Task Note</label><textarea id="tkNote">${esc(t ? t.note : '')}</textarea>
-      <div class="tabs">${['Monthly Task', 'Weekly Task', 'Single Task'].map(x => `<span data-tab="${x}" class="${x === tab ? 'on' : ''}">${x}</span>`).join('')}</div><div class="tabBody" id="tkBody"></div>
-      <div class="foot"><button class="btnOutline btnBig" data-close>Close</button>${t && t.status === 'Not Completed' ? '<button class="btnOutline btnBig" id="tkCancelTask">Cancel Task</button>' : ''}<button class="btnBlue btnBig" id="tkSave">${t ? 'Save' : 'Create'}</button></div>`);
-    const body = pp.querySelector('#tkBody');
-    const draw = () => {
-      pp.querySelectorAll('[data-tab]').forEach(s => s.classList.toggle('on', s.dataset.tab === tab));
-      body.innerHTML = tab === 'Monthly Task' ? `First Due Date<span class="req">*</span> <input type="date" id="tkDue" value="${t ? t.due : ''}"> <label><input type="checkbox"> Use Specific Date</label> &nbsp; Recurrence <span class="req">*</span> <select id="tkRec">${opts(['Select', 'Every 30 Days', 'Every 60 Days', 'Every 90 Days', 'Every 120 Days', 'Every 6 Months', 'Every Year'], t ? t.rec : 'Select')}</select>
-        <div style="margin-top:12px">End Date <input type="date" id="tkEnd" value="${t ? t.end : ''}"> <label><input type="checkbox" ${!t || !t.end ? 'checked' : ''}> No End Date</label></div>`
-        : tab === 'Weekly Task' ? `First Due Date<span class="req">*</span> <input type="date" id="tkDue" value="${t ? t.due : ''}"> &nbsp; Recurrence <span class="req">*</span> <select id="tkRec">${opts(['Select', 'Single Week', 'Every Week', 'Every Other Week'], t ? t.rec : 'Select')}</select>
-        <div style="margin-top:12px">Day(s): ${'SMTWTFS'.split('').map(d => `<label style="margin-right:6px"><input type="checkbox"> ${d}</label>`).join('')} Time: <select>${opts(['9', '10', '11', '12', '1', '2', '3', '4'], '9')}</select>:<select>${opts(['00', '15', '30', '45'], '00')}</select> <select>${opts(['AM', 'PM'], 'AM')}</select></div>`
-        : `Due Date<span class="req">*</span> <input type="date" id="tkDue" value="${t ? t.due : ''}">`;
-    };
-    draw();
-    pp.querySelectorAll('[data-tab]').forEach(s => s.onclick = () => { tab = s.dataset.tab; draw(); });
-    const cb = pp.querySelector('#tkCancelTask'); if (cb) cb.onclick = () => { t.status = 'Canceled'; saveTasks(); closePop(); ROUTES.tasks(); };
-    pp.querySelector('#tkSave').onclick = () => {
-      const name = pp.querySelector('#tkName').value, due = pp.querySelector('#tkDue').value, recEl = pp.querySelector('#tkRec'), rec = tab === 'Single Task' ? 'Single' : recEl.value;
-      if (name === 'Select') return msgBox('Please select a Task Name.'); if (!due) return msgBox('Please enter the due date.'); if (rec === 'Select') return msgBox('Please select the Recurrence.');
-      const endEl = pp.querySelector('#tkEnd'), rec2 = { title: name, note: pp.querySelector('#tkNote').value.trim(), due, rec, end: endEl ? endEl.value : '' };
-      if (t) Object.assign(t, rec2); else TASKS.push(Object.assign({ id: 't' + Date.now(), pt: p.id, by: 'Borne, Ben', status: 'Not Completed' }, rec2));
-      saveTasks(); closePop(); toast(t ? 'Task saved' : 'Task created'); ROUTES.tasks();
-    };
+    CCTasks.dialog({ patients: [{ id: p.id, name: fullName(p) }], task: t ? t.id : null, onSaved: () => { toast(t ? 'Task saved' : 'Task created'); ROUTES.tasks(); } });
   }
 
   // ----- Patient Status Report -----

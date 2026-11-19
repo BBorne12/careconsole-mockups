@@ -122,7 +122,15 @@
   .extraBtns .cnt { margin: -6px 0 0 1px; font-size: 10px; }
   .extendImgs { position: absolute; top: 20px; left: 2px; display: flex; gap: 2px; z-index: 1; }
   .extendImgs img { width: 17px; cursor: pointer; }
-    .task_regular { display: inline-block; width: 18px; height: 16px; border: 1px solid #ccc; font-size: 10px; line-height: 14px; }
+    td.tasks_col { min-width: 250px; width: 250px; color: #818181; }
+  .tkRow { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .tkRow .tkName { width: 122px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+  .tkRow .tkName a { text-decoration: underline; cursor: pointer; color: inherit; }
+  .tkRow .tkNote { text-decoration: none !important; margin-left: 2px; }
+  .tkRow .DueDate { width: 68px; } .tkRow a.mv { color: #999; cursor: pointer; text-decoration: none; font-size: 10px; } .tkRow .tkOf { font-size: 9px; }
+  .task_redcolor, .task_redcolor a { color: #c0392b !important; } .task_redbackground { background-color: #fdeeeb !important; } .task_yellowbackground { background-color: #fcf7e2 !important; }
+  .tasksCollapsed .tasks_col { display: none; }
+  .task_regular { display: inline-block; width: 18px; height: 16px; border: 1px solid #ccc; font-size: 10px; line-height: 14px; }
   .emptyRow td { padding: 30px; color: #666; font-weight: 400; }
   footer { display: flex; justify-content: center; align-items: center; gap: 10px; padding: 10px; font-size: 14px; color: #555; position: relative; }
   footer .ver { position: absolute; right: 10px; }
@@ -185,6 +193,7 @@
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 8px 16px; border-radius: 4px; font-size: 13px; z-index: 2000; display: none; }
 </style>
 <script src="add-note.js"></script>
+<script src="cc-tasks.js"></script>
 </head>
 <body>
 
@@ -241,7 +250,7 @@
     <select id="fPri"><option value="">All Priority Levels</option><option value="1">Level 1 (High Priority)</option><option value="2">Level 2 (Moderate Priority)</option><option value="3">Level 3 (Low Priority)</option></select>
     <select id="fDis"><option value="">All Diseases</option><option value="Hypertension">Hypertension</option><option value="CHF">CHF</option><option value="Weight Management">Weight Management</option></select>
     <select id="fDmp"><option value="">All DMPs</option></select>
-    <select id="fTask"><option>All Tasks</option></select>
+    <select id="fTask"><option value="">All Tasks</option><option value="0">Overdue/Due Today</option><option value="7">Due in Next 7 Days</option><option value="14">Due in Next 14 Days</option></select>
     <a id="lnkFilterReset">Reset</a>
     <a class="mv">Manage View</a>
   </div>
@@ -257,8 +266,8 @@
       <th>DMP</th><th>Weight</th><th>Gluco</th><th>BP</th><th>Pulse</th><th>SPO2</th><th>Pulse</th><th>Steps</th><th>FEV1/FEV6</th><th>Pain</th><th>Temp</th>
       <th class="sort" data-sort="nr" data-tip="Current NR"><a style="color:#fff;padding-left:3px">NR</a> <img class="sortImg" data-sortimg="nr" alt="Sort"></th>
       <th>&nbsp;</th>
-      <th><img data-img="ButtonCollapse_White" style="width:16px;vertical-align:middle" alt="Tasks"></th>
-      <th style="text-align:left;width:270px"><span style="padding-left:4px">Tasks</span><span style="float:right"><input type="button" class="worklist_button" value="View All"><input type="button" class="worklist_button" value="Complete"></span></th>
+      <th><a role="button" id="hlTaskToggle" aria-label="Collapse tasks" style="cursor:pointer"><img data-img="ButtonCollapse_White" style="width:16px;vertical-align:middle" alt="Collapse"></a></th>
+      <th class="tasks_col" style="text-align:left;width:270px"><span style="padding-left:4px">Tasks</span><span style="float:right"><input type="button" id="btnViewAllTask" class="worklist_button" value="View All"><input type="button" id="btnTaskComplete" class="worklist_button" value="Complete"></span></th>
     </tr></thead>
     <tbody id="tbodyWorkList"></tbody>
   </table>
@@ -531,13 +540,26 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     catch { const m = new Map(); return { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; }
   })();
   const getJson = (k, d) => { try { return JSON.parse(store.getItem(k)) ?? d; } catch { return d; } };
-  // Tasks count: uncompleted tasks (kept by careconsole.html in "ccTasks") that are overdue or due within 14 days
+  // ---------- Tasks (shared with careconsole.html through cc-tasks.js / localStorage "ccTasks") ----------
+  const taskIdx = {};                       // which of a patient's tasks the Tasks column is showing
+  const taskSel = new Set();                // tasks checked for Complete
+  const shownTasks = p => CCTasks.open(CCTasks.load(), p.id).filter(t => CCTasks.category(t) <= 2);   // overdue, today, next 7 / 14 days
   function taskCell(p) {
-    const today = iso(dateOf(DAYS)), d7 = iso(dateOf(DAYS + 7)), d14 = iso(dateOf(DAYS + 14));
-    const open = getJson('ccTasks', []).filter(t => t.pt === p.id && t.status === 'Not Completed');
-    const od = open.filter(t => t.due < today).length, w7 = open.filter(t => t.due >= today && t.due <= d7).length, w14 = open.filter(t => t.due >= today && t.due <= d14).length;
+    const cat = CCTasks.open(CCTasks.load(), p.id).map(CCTasks.category);
+    const od = cat.filter(c => c === -1).length, w7 = cat.filter(c => c >= 0 && c <= 1).length, w14 = cat.filter(c => c >= 0 && c <= 2).length;
     const tip = `&nbsp;<b>Overdue</b> : ${od} Tasks<br>&nbsp;<b>7 Days</b> : ${w7} Tasks Due<br>&nbsp;<b>14 Days</b> : ${w14} Tasks Due`;
-    return `<td style="width:30px"><a class="task_regular" href="careconsole.html#tasks" data-taskpt="${p.id}" data-tip="${tip}" style="color:${od ? '#c00' : '#000'};text-decoration:none;cursor:pointer">${od + w14}</a></td>`;
+    return `<td style="width:30px"><span class="task_regular" data-tip="${tip}">${od + w14}</span></td>`;
+  }
+  function tasksCell(p) {
+    const list = shownTasks(p);
+    if (!list.length) return '<td class="tasks_col"></td>';
+    const k = Math.min(taskIdx[p.id] || 0, list.length - 1), t = list[k], c = CCTasks.category(t);
+    const anyOverdue = list.some(x => CCTasks.category(x) <= 0);
+    const cls = (c <= 0 && anyOverdue ? ' task_redbackground' : c === 1 ? ' task_yellowbackground' : '') + (c === -1 ? ' task_redcolor' : '');
+    return `<td class="tasks_col TasksContainer${cls}"><div class="tkRow"><input type="checkbox" data-tksel="${t.id}" ${taskSel.has(t.id) ? 'checked' : ''} aria-label="Select task ${esc(t.title)}">`
+      + `<a data-tkmove="${p.id}|-1" aria-label="Previous task" class="mv">&#9664;</a>`
+      + `<span class="tkName"><a data-tkopen="${t.id}" data-tkpt="${p.id}">${esc(t.title)}</a>${t.note ? `<a class="tkNote" data-tip="${esc(t.note)}">*</a>` : ''}</span>`
+      + `<span class="DueDate">${CCTasks.mdy(t.due)}</span><a data-tkmove="${p.id}|1" aria-label="Next task" class="mv">&#9654;</a>${list.length > 1 ? `<span class="tkOf">${k + 1}/${list.length}</span>` : ''}</div></td>`;
   }
   const setJson = (k, v) => store.setItem(k, JSON.stringify(v));
 
@@ -713,7 +735,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       <td>${info.nr}</td>
       <td style="width:70px"><div class="extraBtns"><i style="background-image:${imgUrl('addNote')}" data-tip="Write a Note" data-note="${p.id}" role="button" aria-label="Write a Note"></i><i style="background-image:${imgUrl('flag')}" data-tip="<b>Status</b><br><br><b><span style='color:#19e512'>Active</span></b> ${shortDate(dateOf(1))} - Present"></i><i style="background-image:${imgUrl('Announcement')}" data-tip="Create, update and view announcements"></i><span class="cnt">0</span>${ext}</div></td>
       ${taskCell(p)}
-      <td></td>
+      ${tasksCell(p)}
     </tr>`;
   }
   function subRow(info) {
@@ -724,7 +746,7 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
       <td>${shortDate(info.date)}</td>
       <td><a style="color:#000" data-tip="${esc(dmpTip(p, info.sess))}">${info.sess}/${p.total}</a></td>
       ${dmpCell(info)}${vitalCells(info, true)}
-      <td></td><td></td><td></td><td></td>
+      <td></td><td></td><td></td><td class="tasks_col"></td>
     </tr>`;
   }
 
@@ -748,7 +770,8 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     const anyFlag = Object.values(flags).some(Boolean);
     const rows = all.filter(r => (!anyFlag || flags[flagOf[r.level]]) &&
       (!$('fCoc').value || r.p.coc === $('fCoc').value) && (!$('fPri').value || String(r.p.pri) === $('fPri').value) &&
-      (!$('fDis').value || r.p.disease === $('fDis').value) && (!$('fDmp').value || r.p.dmpName === $('fDmp').value));
+      (!$('fDis').value || r.p.disease === $('fDis').value) && (!$('fDmp').value || r.p.dmpName === $('fDmp').value) &&
+      (!$('fTask').value || CCTasks.open(CCTasks.load(), r.p.id).some(t => { const c = CCTasks.category(t); return $('fTask').value === '0' ? c <= 0 : $('fTask').value === '7' ? c <= 1 : c <= 2; })));
     const lvlRank = { H: 0, M: 1, L: 2, NR: 3 };
     rows.sort((a, b) => {
       if (sortKey === 'name') return sortDir * a.p.name.localeCompare(b.p.name);
@@ -818,8 +841,8 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   $('lnkRefresh').onclick = () => render();
   $('lnkTopReset').onclick = () => { setPatient(''); expandedId = null; render(); };
   $('collapseTab').onclick = () => { document.body.classList.toggle('panelHidden'); $('collapseTab').innerHTML = document.body.classList.contains('panelHidden') ? '&#9660;' : '&#9650;'; };
-  ['fCoc', 'fPri', 'fDis', 'fDmp'].forEach(id => $(id).onchange = render);
-  $('lnkFilterReset').onclick = () => { ['fCoc', 'fPri', 'fDis', 'fDmp'].forEach(id => $(id).value = ''); Object.keys(flags).forEach(k => flags[k] = false); render(); };
+  ['fCoc', 'fPri', 'fDis', 'fDmp', 'fTask'].forEach(id => $(id).onchange = render);
+  $('lnkFilterReset').onclick = () => { ['fCoc', 'fPri', 'fDis', 'fDmp', 'fTask'].forEach(id => $(id).value = ''); Object.keys(flags).forEach(k => flags[k] = false); render(); };
   $('counts').onchange = e => { const f = e.target.dataset.flag; if (f) { flags[f] = e.target.checked; render(); } };
   document.querySelectorAll('th.sort').forEach(th => th.onclick = () => { const k = th.dataset.sort; sortDir = sortKey === k ? -sortDir : 1; sortKey = k; render(); });
 
@@ -828,8 +851,12 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     if (ex) { expand(ex.dataset.expand); return; }
     const xt = e.target.closest('[data-extend]');
     if (xt) { extendDays = +xt.dataset.extend; render(); return; }
-    const tk = e.target.closest('[data-taskpt]');
-    if (tk) { store.setItem('ccSelectedPatient', tk.dataset.taskpt); return; }   // link continues to the All Assigned Tasks page
+    const ts = e.target.closest('[data-tksel]');
+    if (ts) { ts.checked ? taskSel.add(ts.dataset.tksel) : taskSel.delete(ts.dataset.tksel); return; }
+    const tm = e.target.closest('[data-tkmove]');
+    if (tm) { const [id, d] = tm.dataset.tkmove.split('|'), n = shownTasks(byId[id]).length; taskIdx[id] = ((taskIdx[id] || 0) + +d + n) % n; render(); return; }
+    const to = e.target.closest('[data-tkopen]');
+    if (to) { const p = byId[to.dataset.tkpt]; CCTasks.dialog({ task: to.dataset.tkopen, patients: [{ id: p.id, name: p.name }], onSaved: () => render() }); return; }
     const nt = e.target.closest('[data-note]');
     if (nt) { const p = byId[nt.dataset.note]; if (window.ccAddNote) ccAddNote({ pt: p.id, name: p.name }); return; }
     const pt = e.target.closest('[data-patient]');
@@ -863,7 +890,19 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
     items.forEach(({ id, day }) => { if (!reviewOf(byId[id], day)) reviews[id + '|' + day] = { by: USER, on }; });
     saveReviews(); render();
   };
-  $('btnCreateTask').onclick = () => showAlert('Create Task is not part of this mockup.', { title: 'Mockup' });
+  // Create Task: one task for every checked patient (as on CareConsole 3.0)
+  $('btnCreateTask').onclick = () => {
+    const ids = [...new Set(checked().map(c => c.id))];
+    if (!ids.length) return showAlert('Please select at least one patient.', { title: 'Create Task' });
+    CCTasks.dialog({ patients: ids.map(id => ({ id, name: byId[id].name })), onSaved: () => render() });
+  };
+  $('btnViewAllTask').onclick = () => { const id = expandedId || (checked()[0] || {}).id; if (id) store.setItem('ccSelectedPatient', id); location.href = 'careconsole.html#tasks'; };
+  $('btnTaskComplete').onclick = () => {
+    if (!taskSel.size) return showAlert('Please select at least one task.', { title: 'Complete' });
+    const n = CCTasks.complete([...taskSel]); taskSel.clear(); render();
+    showAlert(`${n} task(s) completed.${n ? ' Recurring tasks move to their next due date.' : ''}`, { title: 'Complete' });
+  };
+  $('hlTaskToggle').onclick = () => { $('tblWorkList').classList.toggle('tasksCollapsed'); };
 
   // Copy to CPRS works on the checked days of one patient (the first one checked)
   $('btnCPRS').onclick = () => {
