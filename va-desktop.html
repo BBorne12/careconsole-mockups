@@ -334,6 +334,7 @@
   <div class="dicon" data-vista><div class="ico appIco ico-vista">&gt;_</div>VistA</div>
   <div class="dicon" data-open="browser" data-url="worklist.html"><div class="ico appIco ico-browser">e</div>CareConsole</div>
   <div class="dicon" data-open="browser" data-url="healthbuddy.html"><div class="ico appIco" style="background:#1d5fae;font-size:12px">HB</div>Health Buddy Desktop</div>
+  <div class="dicon" data-open="browser" data-url="enet.html"><div class="ico appIco" style="background:#108c8c;font-size:11px">ENET</div>ENET</div>
 </div>
 
 <!-- Browser window -->
@@ -346,7 +347,7 @@
     <div class="addr"><span class="lock">&#128274;</span><span><span class="host" id="addrHost">careconsole.amchealth.example</span><span class="path" id="addrPath"></span></span></div>
     <button title="Favorites">&#9734;</button><button title="Settings and more">&#8943;</button>
   </div>
-  <div class="bFavs"><a data-nav="worklist.html"><span class="fav">CC</span>CareConsole Work List</a><a data-nav="patient-analysis.html"><span class="fav">CC</span>Patient Analysis</a><a data-nav="careconsole.html#dashboard"><span class="fav">CC</span>CareConsole Dashboard</a><a data-nav="ht-monitor.html"><span class="fav" style="background:#4f81bd">RS</span>HT Monitor Tool</a><a data-nav="healthbuddy.html"><span class="fav" style="background:#1d5fae">HB</span>Health Buddy Desktop</a><a><span class="fav" style="background:#888">VA</span>VA Intranet</a></div>
+  <div class="bFavs"><a data-nav="worklist.html"><span class="fav">CC</span>CareConsole Work List</a><a data-nav="patient-analysis.html"><span class="fav">CC</span>Patient Analysis</a><a data-nav="careconsole.html#dashboard"><span class="fav">CC</span>CareConsole Dashboard</a><a data-nav="ht-monitor.html"><span class="fav" style="background:#4f81bd">RS</span>HT Monitor Tool</a><a data-nav="healthbuddy.html"><span class="fav" style="background:#1d5fae">HB</span>Health Buddy Desktop</a><a data-nav="enet.html"><span class="fav" style="background:#108c8c">EN</span>ENET</a><a><span class="fav" style="background:#888">VA</span>VA Intranet</a></div>
   <div class="bView"><iframe id="frame" title="CareConsole" allow="clipboard-read; clipboard-write"></iframe>
     <div class="blocked" id="blocked">This browser view loads the CareConsole mockup pages from the same folder.<br>Open this desktop through the local server (or directly in a browser) to see them.</div></div>
   <div class="grip"></div><div class="rz n" data-rz="n"></div><div class="rz s" data-rz="s"></div><div class="rz e" data-rz="e"></div><div class="rz w" data-rz="w"></div><div class="rz ne" data-rz="ne"></div><div class="rz nw" data-rz="nw"></div><div class="rz se" data-rz="se"></div><div class="rz sw" data-rz="sw"></div>
@@ -456,6 +457,7 @@
     <div class="app" data-open="browser" data-url="careconsole.html#dashboard"><div class="appIco" style="background:#004C97;font-size:11px">CD</div>CareConsole Dashboard</div>
     <div class="app" data-open="browser" data-url="ht-monitor.html"><div class="appIco" style="background:#4f81bd;font-size:11px">RS</div>HT Monitor Tool</div>
     <div class="app" data-open="browser" data-url="healthbuddy.html"><div class="appIco" style="background:#1d5fae;font-size:11px">HB</div>Health Buddy Desktop</div>
+    <div class="app" data-open="browser" data-url="enet.html"><div class="appIco" style="background:#108c8c;font-size:9px">ENET</div>ENET</div>
   </div>
   <div class="user" style="display:flex;justify-content:space-between;align-items:center"><span>&#128100; Borne, Ben (VHA Care Coordinator)</span><span id="btnLock" style="cursor:pointer;padding:4px 8px;border-radius:4px" title="Lock">&#128274; Lock</span></div>
 </div>
@@ -581,8 +583,8 @@ var CC_RAW=[{"id":"robert","first":"Robert","last":"Hale","prog":"HTN","vit":[["
   //  Browser: shows the CareConsole mockup pages from this folder
   // ===================================================================
   const frame = $('frame');
-  const PATHS = { 'worklist.html': '/ViewPatientWorkList_New.aspx', 'patient-analysis.html': '/PatientAnalysis.aspx', 'careconsole.html': '/LandingPage.aspx', 'ht-monitor.html': '/Reports/report/Clinical_Reports/HT_Reports/HT%20Monitor%20Tool', 'healthbuddy.html': '/hbdesktop/Login.do' };
-  const HOSTS = { 'ht-monitor.html': 'vaww.visn00.dw.va.example', 'healthbuddy.html': 'hbdesktop.healthfaux.example' };
+  const PATHS = { 'worklist.html': '/ViewPatientWorkList_New.aspx', 'patient-analysis.html': '/PatientAnalysis.aspx', 'careconsole.html': '/LandingPage.aspx', 'ht-monitor.html': '/Reports/report/Clinical_Reports/HT_Reports/HT%20Monitor%20Tool', 'healthbuddy.html': '/hbdesktop/Login.do', 'enet.html': '/enet/StaffLogin.asp' };
+  const HOSTS = { 'ht-monitor.html': 'vaww.visn00.dw.va.example', 'healthbuddy.html': 'hbdesktop.healthfaux.example', 'enet.html': 'enet.fauxterion.example' };
   // careconsole.html reports its own page title and address as the user moves between its pages
   addEventListener('message', e => {
     if (e.source !== frame.contentWindow || !e.data || e.data.type !== 'cc-nav') return;
